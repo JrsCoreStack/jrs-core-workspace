@@ -20,7 +20,7 @@ export default new DataSource({
           // opcional: ca: readFileSync(process.env.DB_SSL_CA_PATH!, 'utf8'),
         }
         : false,
-  entities: [__dirname + '/**/*.entity{.ts,.js}'],
+  entities: [__dirname + '/../modules/**/*.entity{.ts,.js}'],
   migrations: [__dirname + '/../migrations/*{.ts,.js}'],
   migrationsRun: false,
   synchronize: false,

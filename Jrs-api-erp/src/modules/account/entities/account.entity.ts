@@ -1,3 +1,4 @@
+import { ApiProperty } from '@nestjs/swagger';
 import { BankAccountEntity } from 'src/modules/bank_account/entities/bank_account.entity';
 import { FinancialChartOfAccountsEntity } from 'src/modules/financial_chart_of_accounts/entities/financial_chart_of_accounts.entity';
 import { EventEntity } from 'src/modules/event/entities/event.entity';
@@ -17,106 +18,56 @@ import { AccountLevel } from 'src/utils/enums/account_level.enum';
 
 @Entity('erp_account')
 export class AccountEntity {
+  @ApiProperty({ example: 'uuid-da-conta' })
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({
-    name: 'name',
-    type: 'varchar',
-    length: 255,
-    nullable: false,
-  })
+  @ApiProperty({ example: 'Empresa XYZ' })
+  @Column({ name: 'name', type: 'varchar', length: 255, nullable: false })
   name: string;
 
-  @Column({
-    name: 'code',
-    type: 'varchar',
-    length: 255,
-    nullable: false,
-  })
+  @ApiProperty({ example: 'EMP001', description: 'Código da conta' })
+  @Column({ name: 'code', type: 'varchar', length: 255, nullable: false })
   code: string;
 
-  @Column({
-    name: 'email',
-    type: 'varchar',
-    length: 255,
-    nullable: false,
-    unique: true,
-  })
+  @ApiProperty({ example: 'contato@empresa.com' })
+  @Column({ name: 'email', type: 'varchar', length: 255, nullable: false, unique: true })
   email: string;
 
-  @Column({
-    name: 'type',
-    type: 'int',
-    nullable: false,
-    unique: true,
-  })
+  @ApiProperty({ example: 1, description: 'Tipo numérico único da conta' })
+  @Column({ name: 'type', type: 'int', nullable: false, unique: true })
   type: number;
 
-  @Column({
-    name: 'level',
-    type: 'enum',
-    enum: AccountLevel,
-    enumName: 'account_level_enum',
-    nullable: false,
-    default: AccountLevel.OPERATIONAL,
-  })
+  @ApiProperty({ enum: AccountLevel, example: AccountLevel.OPERATIONAL })
+  @Column({ name: 'level', type: 'enum', enum: AccountLevel, enumName: 'account_level_enum', nullable: false, default: AccountLevel.OPERATIONAL })
   level: AccountLevel;
 
+  @ApiProperty({ example: '2024-01-01T00:00:00Z' })
   @CreateDateColumn({ name: 'created_at' })
   created_at: Date;
 
+  @ApiProperty({ example: '2024-01-01T00:00:00Z' })
   @UpdateDateColumn({ name: 'updated_at' })
   updated_at: Date;
 
-  @OneToMany(() => UserAccountEntity, (user_account) => user_account.account, {
-    onDelete: 'CASCADE',
-  })
+  @OneToMany(() => UserAccountEntity, (user_account) => user_account.account, { onDelete: 'CASCADE' })
   user_accounts: UserAccountEntity[];
 
-  @OneToMany(() => EventEntity, (event) => event.account, {
-    onDelete: 'CASCADE',
-  })
+  @OneToMany(() => EventEntity, (event) => event.account, { onDelete: 'CASCADE' })
   events: EventEntity[];
 
-  @OneToMany(
-    () => StatementOrganizationEntity,
-    (statement) => statement.event,
-    {
-      onDelete: 'CASCADE',
-    },
-  )
+  @OneToMany(() => StatementOrganizationEntity, (statement) => statement.event, { onDelete: 'CASCADE' })
   statements: StatementOrganizationEntity[];
 
-  @OneToMany(() => BankAccountEntity, (bank_account) => bank_account.account, {
-    onDelete: 'CASCADE',
-  })
+  @OneToMany(() => BankAccountEntity, (bank_account) => bank_account.account, { onDelete: 'CASCADE' })
   bank_accounts: BankAccountEntity[];
 
-  @OneToMany(
-    () => FinancialChartOfAccountsEntity,
-    (chart_of_accounts) => chart_of_accounts.account,
-    {
-      onDelete: 'CASCADE',
-    },
-  )
+  @OneToMany(() => FinancialChartOfAccountsEntity, (chart_of_accounts) => chart_of_accounts.account, { onDelete: 'CASCADE' })
   chart_of_accounts: FinancialChartOfAccountsEntity[];
 
-  @OneToMany(
-    () => FinancialAccountEntity,
-    (financial_account) => financial_account.account,
-    {
-      onDelete: 'CASCADE',
-    },
-  )
+  @OneToMany(() => FinancialAccountEntity, (financial_account) => financial_account.account, { onDelete: 'CASCADE' })
   financial_accounts: FinancialAccountEntity[];
 
-  @OneToMany(
-    () => FinancialEntryEntity,
-    (financial_entry) => financial_entry.account,
-    {
-      onDelete: 'CASCADE',
-    },
-  )
+  @OneToMany(() => FinancialEntryEntity, (financial_entry) => financial_entry.account, { onDelete: 'CASCADE' })
   financial_entries: FinancialEntryEntity[];
 }
