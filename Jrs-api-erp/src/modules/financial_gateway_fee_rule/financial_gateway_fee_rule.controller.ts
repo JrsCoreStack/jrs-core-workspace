@@ -7,11 +7,14 @@ import {
   Post,
   Query,
 } from '@nestjs/common';
+import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { FinancialGatewayFeeRuleService } from './financial_gateway_fee_rule.service';
 import { CreateFinancialGatewayFeeRuleDTO } from './dtos/create';
 import { FinancialGatewayFeeRuleEntity } from './entities/financial_gateway_fee_rule.entity';
 import { ReturnFinancialGatewayFeeRuleDTO } from './dtos/return';
 
+@ApiTags('Financeiro – Taxas Gateway')
+@ApiBearerAuth()
 @Controller('financial_gateway_fee_rules')
 export class FinancialGatewayFeeRuleController {
   constructor(

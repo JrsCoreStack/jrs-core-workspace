@@ -1,4 +1,5 @@
 import { Controller, Get, Param, UseGuards } from '@nestjs/common';
+import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { RoleService } from './role.service';
 import { RoleEntity } from './entities/role.entity';
 import { AuthGuard } from 'src/guards/auth.guard';
@@ -7,6 +8,8 @@ import { PermissionGuard } from 'src/guards/permission.guard';
 import { RequirePermission } from 'src/decorators/permission.decorator';
 import { Permission } from 'src/utils/enums/permission.enum';
 
+@ApiTags('Papéis (Roles)')
+@ApiBearerAuth()
 @Controller('role')
 export class RoleController {
   constructor(private readonly roleService: RoleService) {}

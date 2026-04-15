@@ -13,6 +13,16 @@ import {
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiParam,
+  ApiQuery,
+  ApiBearerAuth,
+  ApiBody,
+  ApiConsumes,
+} from '@nestjs/swagger';
 import { AuthGuard } from '../../guards/auth.guard';
 import { CurrentUserId } from '../../decorators/user.decorator';
 import { FileInterceptor } from '@nestjs/platform-express';
@@ -22,22 +32,33 @@ import { UpdateCockpitKpiDTO } from './dtos/update';
 import { CockpitKpiEntity } from './entities/cockpit_kpi.entity';
 import { IsArray, IsNumber, IsOptional, IsString, Matches, MaxLength, validate } from 'class-validator';
 
+@ApiTags('Cockpit – KPIs')
+@ApiBearerAuth()
 @Controller('cockpit/kpis')
 export class CockpitKpiController {
   constructor(private readonly service: CockpitKpiService) {}
 
   @Post()
+  @ApiOperation({ summary: 'Criar KPI' })
+  @ApiResponse({ status: 201, description: 'KPI criado com sucesso' })
   create(@Body() body: CreateCockpitKpiDTO): Promise<CockpitKpiEntity> {
     return this.service.create(body);
   }
 
-  /** Dispara a verificação de stale (mesma lógica do cron diário). Útil para testes ou job externo. */
   @Post('stale-check')
+  @ApiOperation({ summary: 'Executar verificação de KPIs desatualizados (stale check)' })
+  @ApiResponse({ status: 201, schema: { properties: { scanned: { type: 'number' }, staleUpdated: { type: 'number' }, notificationsCreated: { type: 'number' } } } })
   runStaleCheck(): Promise<{ scanned: number; staleUpdated: number; notificationsCreated: number }> {
     return this.service.runStaleCheckAndNotify();
   }
 
   @Get()
+  @ApiOperation({ summary: 'Listar KPIs' })
+  @ApiQuery({ name: 'q', required: false, description: 'Pesquisar por nome' })
+  @ApiQuery({ name: 'area', required: false })
+  @ApiQuery({ name: 'ritual_id', required: false })
+  @ApiQuery({ name: 'meeting_id', required: false })
+  @ApiResponse({ status: 200, description: 'Lista de KPIs' })
   list(
     @Query('q') q?: string,
     @Query('area') area?: string,
@@ -48,7 +69,14 @@ export class CockpitKpiController {
   }
 
   @Get(':id/results/:resultId/attachment')
-  async downloadEvidence(@Param('id') kpiId: string, @Param('resultId') resultId: string): Promise<StreamableFile> {
+  @ApiOperation({ summary: 'Download de evidência do resultado' })
+  @ApiParam({ name: 'id', type: 'string', format: 'uuid' })
+  @ApiParam({ name: 'resultId', type: 'string', format: 'uuid' })
+  @ApiResponse({ status: 200, description: 'Arquivo de evidência' })
+  async downloadEvidence(
+    @Param('id') kpiId: string,
+    @Param('resultId') resultId: string,
+  ): Promise<StreamableFile> {
     const { stream, fileName, mime } = await this.service.openEvidenceFile(kpiId, resultId);
     return new StreamableFile(stream, {
       type: mime,
@@ -58,6 +86,11 @@ export class CockpitKpiController {
 
   @Post(':id/results/:resultId/attachment')
   @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 15 * 1024 * 1024 } }))
+  @ApiOperation({ summary: 'Upload de evidência para resultado de KPI' })
+  @ApiConsumes('multipart/form-data')
+  @ApiParam({ name: 'id', type: 'string', format: 'uuid' })
+  @ApiParam({ name: 'resultId', type: 'string', format: 'uuid' })
+  @ApiResponse({ status: 201, description: 'Evidência anexada' })
   async uploadEvidence(
     @Param('id') kpiId: string,
     @Param('resultId') resultId: string,
@@ -68,17 +101,28 @@ export class CockpitKpiController {
   }
 
   @Get(':id')
+  @ApiOperation({ summary: 'Buscar KPI por ID (detalhe)' })
+  @ApiParam({ name: 'id', type: 'string', format: 'uuid' })
+  @ApiResponse({ status: 200, description: 'Detalhe do KPI' })
+  @ApiResponse({ status: 404, description: 'KPI não encontrado' })
   get(@Param('id') id: string): Promise<any> {
     return this.service.findDetailById(id);
   }
 
   @Put(':id')
+  @ApiOperation({ summary: 'Atualizar KPI' })
+  @ApiParam({ name: 'id', type: 'string', format: 'uuid' })
+  @ApiResponse({ status: 200, description: 'KPI atualizado' })
   update(@Param('id') id: string, @Body() body: UpdateCockpitKpiDTO): Promise<CockpitKpiEntity> {
     return this.service.update(id, body);
   }
 
   @Delete(':id/results/:resultId')
   @UseGuards(AuthGuard)
+  @ApiOperation({ summary: 'Remover resultado de KPI (soft delete)' })
+  @ApiParam({ name: 'id', type: 'string', format: 'uuid' })
+  @ApiParam({ name: 'resultId', type: 'string', format: 'uuid' })
+  @ApiResponse({ status: 200, schema: { properties: { ok: { type: 'boolean' } } } })
   async removeResult(
     @Param('id') kpiId: string,
     @Param('resultId') resultId: string,
@@ -89,6 +133,23 @@ export class CockpitKpiController {
   }
 
   @Post(':id/results')
+  @ApiOperation({ summary: 'Adicionar resultado ao KPI' })
+  @ApiParam({ name: 'id', type: 'string', format: 'uuid' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: ['period_label', 'value'],
+      properties: {
+        period_label: { type: 'string', example: '2024-01' },
+        value: { type: 'number', example: 85.5 },
+        target: { type: 'number', nullable: true, example: 100 },
+        period_start: { type: 'string', example: '2024-01-01', nullable: true },
+        evidence_url: { type: 'string', nullable: true },
+        evidence_note: { type: 'string', nullable: true },
+      },
+    },
+  })
+  @ApiResponse({ status: 201, description: 'Resultado adicionado' })
   async addResult(
     @Param('id') id: string,
     @Body()
@@ -113,7 +174,6 @@ export class CockpitKpiController {
       @IsNumber()
       target?: number | null;
 
-      /** YYYY-MM-DD — início do período; se omitido, é inferido do period_label */
       @IsOptional()
       @IsString()
       @Matches(/^\d{4}-\d{2}-\d{2}$/)
@@ -139,6 +199,10 @@ export class CockpitKpiController {
   }
 
   @Put(':id/rituals')
+  @ApiOperation({ summary: 'Vincular rituais ao KPI' })
+  @ApiParam({ name: 'id', type: 'string', format: 'uuid' })
+  @ApiBody({ schema: { properties: { ritual_ids: { type: 'array', items: { type: 'string' } } } } })
+  @ApiResponse({ status: 200, schema: { properties: { ok: { type: 'boolean' } } } })
   async setRitualLinks(
     @Param('id') id: string,
     @Body() body: { ritual_ids: string[] },
@@ -158,9 +222,11 @@ export class CockpitKpiController {
   }
 
   @Delete(':id')
+  @ApiOperation({ summary: 'Deletar KPI' })
+  @ApiParam({ name: 'id', type: 'string', format: 'uuid' })
+  @ApiResponse({ status: 200, schema: { properties: { message: { type: 'string' } } } })
   async remove(@Param('id') id: string): Promise<{ message: string }> {
     await this.service.delete(id);
     return { message: 'KPI deletado com sucesso' };
   }
 }
-

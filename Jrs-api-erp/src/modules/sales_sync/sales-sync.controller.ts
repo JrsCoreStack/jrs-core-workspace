@@ -1,7 +1,10 @@
 import { Controller, Get, Post, Query, Param, UseGuards } from '@nestjs/common';
+import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { SalesSyncService } from './sales-sync.service';
 import { AuthGuard } from 'src/guards/auth.guard';
 
+@ApiTags('Sincronização de Vendas')
+@ApiBearerAuth()
 @Controller('sales-sync')
 // @UseGuards(AuthGuard)
 export class SalesSyncController {

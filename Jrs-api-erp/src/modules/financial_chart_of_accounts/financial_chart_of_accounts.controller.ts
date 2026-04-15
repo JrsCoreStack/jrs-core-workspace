@@ -1,8 +1,11 @@
 import { Body, Controller, Get, Param, Post } from '@nestjs/common';
+import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { FinancialChartOfAccountsService } from './financial_chart_of_accounts.service';
 import { CreateFinancialChartOfAccountsDTO } from './dtos/create';
 import { FinancialChartOfAccountsEntity } from './entities/financial_chart_of_accounts.entity';
 
+@ApiTags('Financeiro – Plano de Contas')
+@ApiBearerAuth()
 @Controller('financial_chart_of_accounts')
 export class FinancialChartOfAccountsController {
   constructor(

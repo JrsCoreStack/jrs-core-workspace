@@ -1,4 +1,5 @@
 import { Controller, Get, Param, UseGuards } from '@nestjs/common';
+import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { PermissionService } from './permission.service';
 import { PermissionEntity } from './entities/permission.entity';
 import { AuthGuard } from 'src/guards/auth.guard';
@@ -9,6 +10,8 @@ import { Permission } from 'src/utils/enums/permission.enum';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 
+@ApiTags('Permissões')
+@ApiBearerAuth()
 @Controller('permission')
 @UseGuards(AuthGuard, AccountGuard, PermissionGuard)
 export class PermissionController {

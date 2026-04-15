@@ -1,9 +1,12 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post, Put, Query } from '@nestjs/common';
+import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { CockpitNotificationService } from './cockpit_notification.service';
 import { CreateCockpitNotificationDTO } from './dtos/create';
 import { UpdateCockpitNotificationDTO } from './dtos/update';
 import { CockpitNotificationEntity } from './entities/cockpit_notification.entity';
 
+@ApiTags('Cockpit – Notificações')
+@ApiBearerAuth()
 @Controller('cockpit/notifications')
 export class CockpitNotificationController {
   constructor(private readonly service: CockpitNotificationService) {}

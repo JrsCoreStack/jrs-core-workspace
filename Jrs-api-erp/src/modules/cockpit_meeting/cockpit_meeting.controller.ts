@@ -1,8 +1,11 @@
 import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
+import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { CockpitMeetingService } from './cockpit_meeting.service';
 import { CreateCockpitMeetingDTO } from './dtos/create';
 import { CockpitMeetingEntity } from './entities/cockpit_meeting.entity';
 
+@ApiTags('Cockpit – Reuniões')
+@ApiBearerAuth()
 @Controller('cockpit/meetings')
 export class CockpitMeetingController {
   constructor(private readonly service: CockpitMeetingService) {}

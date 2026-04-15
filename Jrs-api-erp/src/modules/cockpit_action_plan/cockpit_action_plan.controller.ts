@@ -1,10 +1,13 @@
 import { Body, Controller, Delete, Get, Param, Post, Put, Query } from '@nestjs/common';
+import { ApiTags, ApiBearerAuth, ApiOperation, ApiParam, ApiQuery } from '@nestjs/swagger';
 import { CockpitActionPlanService } from './cockpit_action_plan.service';
 import { CreateCockpitActionPlanDTO } from './dtos/create';
 import { UpdateCockpitActionPlanDTO } from './dtos/update';
 import { AddCockpitActionPlanCommentDTO } from './dtos/add-comment';
 import { CockpitActionPlanEntity } from './entities/cockpit_action_plan.entity';
 
+@ApiTags('Cockpit – Planos de Ação')
+@ApiBearerAuth()
 @Controller('cockpit/action-plans')
 export class CockpitActionPlanController {
   constructor(private readonly service: CockpitActionPlanService) {}

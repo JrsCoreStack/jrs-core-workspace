@@ -1,4 +1,5 @@
 import { Body, Controller, Get, Post, Query, UseGuards } from '@nestjs/common';
+import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { AuthGuard } from 'src/guards/auth.guard';
 import { AccountGuard } from 'src/guards/account.guard';
 import { CurrentAccountId } from 'src/decorators/account.decorator';
@@ -6,6 +7,8 @@ import { StatementProducerService } from './statement_producer.service';
 import { StatementProducerEntity } from './entities/statement_producer.entity';
 import { CreateStatementProducerDTO } from './dtos/create';
 
+@ApiTags('Extrato – Produtor')
+@ApiBearerAuth()
 @Controller('statement_producer')
 export class StatementProducerController {
   constructor(

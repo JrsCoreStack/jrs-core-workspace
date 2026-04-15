@@ -293,43 +293,24 @@ function RegisterTab({ onRegistered }: { onRegistered: () => void }) {
 }
 
 /* ══════════════════════════════════════════════════════
-   DECORATIVE BACKGROUND
-══════════════════════════════════════════════════════ */
-function Background() {
-  return (
-    <>
-      {/* diamond / triangle pattern */}
-      <div className="pointer-events-none absolute inset-0"
-        style={{
-          backgroundImage: `url("data:image/svg+xml,%3Csvg width='32' height='32' viewBox='0 0 32 32' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M16 0l16 16-16 16L0 16z' fill='%23ffffff' fill-opacity='0.025'/%3E%3C/svg%3E")`,
-          backgroundSize: "32px 32px",
-        }} />
-      {/* glow blobs */}
-      <div className="pointer-events-none absolute -top-32 -left-32 h-80 w-80 rounded-full bg-purple-600/25 blur-[100px]" />
-      <div className="pointer-events-none absolute -bottom-32 -right-32 h-80 w-80 rounded-full bg-violet-800/30 blur-[120px]" />
-      <div className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-64 w-64 rounded-full bg-purple-900/20 blur-[80px]" />
-    </>
-  );
-}
-
-/* ══════════════════════════════════════════════════════
    MAIN EXPORT
 ══════════════════════════════════════════════════════ */
 export function AuthModal({ defaultTab = "login" }: { defaultTab?: Tab }) {
   const [tab, setTab] = useState<Tab>(defaultTab);
 
   return (
-    <div className="relative min-h-screen w-full overflow-hidden flex items-center justify-center p-4"
-      style={{ background: "radial-gradient(ellipse at 30% 0%, #1e0b3e 0%, #0f0720 40%, #07040f 100%)" }}>
+    /* Fundo: preto quase puro com leve toque roxo */
+    <div className="relative min-h-screen w-full flex items-center justify-center bg-[#0c0a14] p-4">
 
-      <Background />
+      {/* único gradiente sutil no topo — nada mais */}
+      <div
+        className="pointer-events-none absolute inset-x-0 top-0 h-[420px]"
+        style={{ background: "radial-gradient(ellipse 80% 60% at 50% -10%, rgba(124,58,237,0.18) 0%, transparent 70%)" }}
+      />
 
       {/* Card */}
       <div className="relative z-10 w-full max-w-[420px]">
-        {/* subtle top glow behind card */}
-        <div className="pointer-events-none absolute -inset-px rounded-2xl bg-purple-500/10 blur-xl" />
-
-        <div className="relative rounded-2xl border border-white/8 bg-white/4 backdrop-blur-2xl shadow-2xl shadow-black/60 p-8 space-y-6">
+        <div className="rounded-2xl border border-white/6 bg-[#131020] shadow-xl shadow-black/50 p-8 space-y-6">
 
           {/* ── Tab toggle ── */}
           <div className="flex rounded-full bg-white/6 p-1 gap-1">

@@ -1,4 +1,5 @@
 import { Body, Controller, Get, Post, Query, UseGuards } from '@nestjs/common';
+import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { EventService } from './event.service';
 import { CreateEventDTO } from './dtos/create';
 import { EventEntity } from './entities/event.entity';
@@ -6,6 +7,8 @@ import { AuthGuard } from 'src/guards/auth.guard';
 import { AccountGuard } from 'src/guards/account.guard';
 import { CurrentAccountId } from 'src/decorators/account.decorator';
 
+@ApiTags('Eventos')
+@ApiBearerAuth()
 @Controller('event')
 export class EventController {
   constructor(private readonly eventService: EventService) {}

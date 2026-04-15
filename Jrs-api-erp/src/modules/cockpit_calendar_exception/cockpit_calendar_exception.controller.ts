@@ -1,8 +1,11 @@
 import { Body, Controller, Delete, Get, Param, Post, Put, Query } from '@nestjs/common';
+import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { CockpitCalendarExceptionService } from './cockpit_calendar_exception.service';
 import { CreateCockpitCalendarExceptionDTO } from './dtos/create';
 import { CockpitCalendarExceptionEntity } from './entities/cockpit_calendar_exception.entity';
 
+@ApiTags('Cockpit – Calendário')
+@ApiBearerAuth()
 @Controller('cockpit/calendar/exceptions')
 export class CockpitCalendarExceptionController {
   constructor(private readonly service: CockpitCalendarExceptionService) {}

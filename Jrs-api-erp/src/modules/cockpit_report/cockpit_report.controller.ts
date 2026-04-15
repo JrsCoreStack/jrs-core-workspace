@@ -1,6 +1,9 @@
 import { Controller, Get, Header, Query, StreamableFile } from '@nestjs/common';
+import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { CockpitReportService } from './cockpit_report.service';
 
+@ApiTags('Cockpit – Relatórios')
+@ApiBearerAuth()
 @Controller('cockpit/report')
 export class CockpitReportController {
   constructor(private readonly report: CockpitReportService) {}

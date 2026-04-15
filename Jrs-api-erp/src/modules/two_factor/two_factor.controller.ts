@@ -1,7 +1,10 @@
 import { Controller, Post, Body, Req, UseGuards } from '@nestjs/common';
+import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { TwoFactorService } from './two_factor.service';
 import { ReturnAuthDTO } from '../auth/dtos/return';
 
+@ApiTags('Autenticação 2FA')
+@ApiBearerAuth()
 @Controller('2fa')
 export class TwoFactorController {
   constructor(private readonly twoFactorService: TwoFactorService) {}
