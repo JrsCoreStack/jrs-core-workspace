@@ -10,6 +10,7 @@
     "migration:create": "typeorm migration:create ./src/migrations/%MIGRATION_NAME%",
     "migration:run": "npm run typeorm -- --dataSource=src/config/typeorm-cli.config.ts migration:run",
     "migration:revert": "npm run typeorm -- --dataSource=src/config/typeorm-cli.config.ts migration:revert",
+    "dev": "nest start --watch",
     "build": "nest build",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "start": "npm run migration:run && nest start",
