@@ -1,0 +1,17 @@
+{
+    "name": "jrs-erp-workspace",
+    "private": true,
+    "workspaces": [
+      "Jrs-api-erp",
+      "Jrs-web-erp"
+    ],
+    "scripts": {
+      "dev": "turbo run dev",
+      "build": "turbo run build",
+      "lint": "turbo run lint",
+      "test": "turbo run test"
+    },
+    "devDependencies": {
+      "turbo": "^2.0.0"
+    }
+  }

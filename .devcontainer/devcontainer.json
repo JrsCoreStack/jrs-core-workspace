@@ -1,0 +1,29 @@
+{
+    "name": "JRS ERP Dev",
+    "image": "mcr.microsoft.com/devcontainers/typescript-node:20",
+    "features": {
+      "ghcr.io/devcontainers/features/node:1": { "version": "20" },
+      "ghcr.io/devcontainers/features/docker-in-docker:2": {}
+    },
+    "forwardPorts": [3000, 3001],
+    "portsAttributes": {
+      "3000": { "label": "Next.js Frontend" },
+      "3001": { "label": "NestJS Backend" }
+    },
+    "postCreateCommand": "npm install -g @nestjs/cli turbo && npm install",
+    "customizations": {
+      "vscode": {
+        "extensions": [
+          "dbaeumer.vscode-eslint",
+          "esbenp.prettier-vscode",
+          "bradlc.vscode-tailwindcss",
+          "prisma.prisma",
+          "ms-vscode.vscode-typescript-next"
+        ],
+        "settings": {
+          "editor.formatOnSave": true,
+          "editor.defaultFormatter": "esbenp.prettier-vscode"
+        }
+      }
+    }
+  }
