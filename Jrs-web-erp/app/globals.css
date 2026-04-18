@@ -132,82 +132,137 @@
   100% { transform: translateX(200%); }
 }
 
-/* ── RitualFlow / Auth tokens ── */
+/* ── RitualFlow Design System — Light mode (padrão) ── */
 :root {
-  --rf-bg-base:           #0c0a14;
-  --rf-bg-card:           #131020;
-  --rf-bg-elevated:       #1a1729;
-  --rf-bg-hover:          rgba(255,255,255,0.04);
-  --rf-border-default:    rgba(255,255,255,0.08);
-  --rf-border-subtle:     rgba(255,255,255,0.05);
-  --rf-text-primary:      rgba(255,255,255,0.92);
-  --rf-text-secondary:    rgba(255,255,255,0.55);
-  --rf-text-muted:        rgba(255,255,255,0.30);
-  --rf-accent:            #9333ea;
-  --rf-accent-light:      #a855f7;
-  --rf-accent-dark:       #7c3aed;
-  --rf-success:           #22c55e;
-  --rf-danger:            #ef4444;
-  --rf-radius-sm:         0.5rem;
-  --rf-radius-md:         0.75rem;
-  --rf-radius-lg:         1rem;
-  --rf-radius-xl:         1.25rem;
+  /* Backgrounds */
+  --rf-bg-base:        #f0f1f4;
+  --rf-bg-surface:     #ffffff;
+  --rf-bg-elevated:    #ffffff;
+  --rf-bg-overlay:     #e8eaf0;
+  --rf-bg-hover:       rgba(0,0,0,0.03);
+  /* Borders */
+  --rf-border-subtle:  rgba(0,0,0,0.05);
+  --rf-border-default: rgba(0,0,0,0.09);
+  --rf-border-strong:  rgba(0,0,0,0.15);
+  /* Text */
+  --rf-text-primary:   #0d0f14;
+  --rf-text-secondary: #5a6478;
+  --rf-text-muted:     #aab0bd;
+  /* Accent */
+  --rf-accent:         #7b61ff;
+  --rf-accent-hover:   #6b4eff;
+  --rf-accent-soft:    rgba(123,97,255,0.10);
+  --rf-accent-border:  rgba(123,97,255,0.22);
+  /* Semantic */
+  --rf-cyan:           #00d4ff;
+  --rf-cyan-soft:      rgba(0,212,255,0.08);
+  --rf-danger:         #ef4444;
+  --rf-danger-soft:    rgba(239,68,68,0.08);
+  --rf-success:        #22c55e;
+  --rf-success-soft:   rgba(34,197,94,0.08);
+  --rf-warning:        #f59e0b;
+  /* Shadows — mais suaves no light */
+  --rf-shadow-sm:      0 1px 4px rgba(0,0,0,0.07);
+  --rf-shadow-md:      0 4px 24px rgba(0,0,0,0.08);
+  --rf-shadow-lg:      0 8px 48px rgba(0,0,0,0.12);
+  /* Radii */
+  --rf-radius-sm:      6px;
+  --rf-radius-md:      10px;
+  --rf-radius-lg:      14px;
+  --rf-radius-xl:      20px;
+  --rf-transition:     0.18s cubic-bezier(0.4,0,0.2,1);
 }
 
-/* Botões da tela de auth */
-.rf-auth button, .rf-auth a { cursor: pointer; }
+/* ── Auth: cursor em elementos clicáveis ── */
+.rf-auth button,
+.rf-auth a,
+.rf-auth [role="button"],
+.rf-switch-link,
+.rf-forgot-link,
+.rf-auth .rf-switch-link,
+.rf-auth .rf-forgot-link { cursor: pointer; }
 
-.rf-auth .rf-btn-primary {
-  display: flex; align-items: center; justify-content: center; gap: 0.5rem;
-  width: 100%; padding: 0.75rem 1rem;
-  border-radius: var(--rf-radius-md);
-  background: linear-gradient(135deg, #9333ea 0%, #7c3aed 50%, #6d28d9 100%);
-  color: #fff; font-size: 0.875rem; font-weight: 600;
-  box-shadow: 0 8px 24px rgba(124,58,237,0.35);
-  transition: opacity 0.18s, transform 0.12s, box-shadow 0.18s;
-  border: none;
+/* ── btn-auth (primário roxo) ── */
+.rf-btn-auth {
+  width: 100%; padding: 11px;
+  background: var(--rf-accent); color: #fff;
+  border: none; border-radius: var(--rf-radius-md);
+  font-family: var(--font-rf-body, sans-serif); font-size: 14px; font-weight: 600;
+  cursor: pointer; transition: all var(--rf-transition);
+  box-shadow: 0 2px 12px rgba(123,97,255,0.40), 0 1px 3px rgba(123,97,255,0.25);
+  display: flex; align-items: center; justify-content: center; gap: 8px;
 }
-.rf-auth .rf-btn-primary:hover:not(:disabled) {
-  opacity: 0.9;
-  box-shadow: 0 12px 32px rgba(124,58,237,0.5);
+.rf-btn-auth:hover:not(:disabled) {
+  background: var(--rf-accent-hover);
+  box-shadow: 0 6px 22px rgba(123,97,255,0.52), 0 2px 6px rgba(123,97,255,0.30);
+  transform: translateY(-1px);
 }
-.rf-auth .rf-btn-primary:active:not(:disabled) { transform: scale(0.98); }
-.rf-auth .rf-btn-primary:disabled { opacity: 0.45; cursor: not-allowed; }
+.rf-btn-auth:active:not(:disabled) { transform: translateY(0); box-shadow: 0 2px 8px rgba(123,97,255,0.35); }
+.rf-btn-auth:disabled { opacity: 0.5; cursor: not-allowed; transform: none !important; }
+.rf-btn-auth.danger { background: var(--rf-danger); box-shadow: 0 2px 12px rgba(239,68,68,0.38), 0 1px 3px rgba(239,68,68,0.22); }
+.rf-btn-auth.danger:hover:not(:disabled) { background: #dc2626; box-shadow: 0 6px 22px rgba(239,68,68,0.48), 0 2px 6px rgba(239,68,68,0.28); }
 
-.rf-auth .rf-btn-white {
-  display: flex; align-items: center; justify-content: center; gap: 0.5rem;
-  width: 100%; padding: 0.75rem 1rem;
-  border-radius: var(--rf-radius-md);
-  background: #fff; color: #111;
-  font-size: 0.875rem; font-weight: 600;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.3);
-  transition: background 0.18s, transform 0.12s;
-  border: none;
+/* ── btn-social (fantasma com borda) ── */
+.rf-btn-social {
+  width: 100%; padding: 9px;
+  background: var(--rf-bg-elevated); color: var(--rf-text-secondary);
+  border: 1px solid var(--rf-border-default); border-radius: var(--rf-radius-md);
+  font-family: var(--font-rf-body, sans-serif); font-size: 13px; font-weight: 500;
+  cursor: pointer; transition: all var(--rf-transition);
+  display: flex; align-items: center; justify-content: center; gap: 8px;
 }
-.rf-auth .rf-btn-white:hover:not(:disabled) { background: rgba(255,255,255,0.9); }
-.rf-auth .rf-btn-white:active:not(:disabled) { transform: scale(0.98); }
-.rf-auth .rf-btn-white:disabled { opacity: 0.45; cursor: not-allowed; }
-
-.rf-auth .rf-btn-ghost {
-  display: flex; align-items: center; justify-content: center; gap: 0.5rem;
-  flex: 1; padding: 0.625rem 1rem;
-  border-radius: var(--rf-radius-md);
-  border: 1px solid var(--rf-border-default);
-  background: rgba(255,255,255,0.04);
-  color: var(--rf-text-secondary);
-  font-size: 0.8125rem; font-weight: 500;
-  transition: background 0.18s, border-color 0.18s, color 0.18s, transform 0.12s;
-}
-.rf-auth .rf-btn-ghost:hover {
-  background: rgba(255,255,255,0.08);
-  border-color: rgba(255,255,255,0.15);
+.rf-btn-social:hover {
+  background: var(--rf-bg-hover);
+  border-color: var(--rf-border-strong);
   color: var(--rf-text-primary);
 }
-.rf-auth .rf-btn-ghost:active { transform: scale(0.97); }
 
-.rf-auth .rf-auth-accent-link {
-  color: var(--rf-accent-light); font-weight: 600;
-  background: none; border: none; padding: 0;
-  transition: color 0.15s;
+/* ── btn-modal-primary / ghost ── */
+.rf-btn-modal-primary {
+  width: 100%; padding: 10px;
+  background: var(--rf-accent); color: #fff;
+  border: none; border-radius: var(--rf-radius-md);
+  font-family: var(--font-rf-body, sans-serif); font-size: 13.5px; font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 2px 12px rgba(123,97,255,0.40), 0 1px 3px rgba(123,97,255,0.22);
+  transition: all var(--rf-transition);
+  display: flex; align-items: center; justify-content: center; gap: 8px;
 }
-.rf-auth .rf-auth-accent-link:hover { color: #c084fc; }
+.rf-btn-modal-primary:hover { background: var(--rf-accent-hover); transform: translateY(-1px); box-shadow: 0 6px 20px rgba(123,97,255,0.50), 0 2px 6px rgba(123,97,255,0.28); }
+.rf-btn-modal-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none !important; }
+
+.rf-btn-modal-ghost {
+  width: 100%; padding: 9px;
+  background: transparent; color: var(--rf-text-secondary);
+  border: 1px solid var(--rf-border-default); border-radius: var(--rf-radius-md);
+  font-family: var(--font-rf-body, sans-serif); font-size: 13px; font-weight: 500;
+  cursor: pointer; transition: all var(--rf-transition);
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+}
+.rf-btn-modal-ghost:hover { background: var(--rf-bg-hover); color: var(--rf-text-primary); }
+
+/* ── modal close button ── */
+.rf-modal-close {
+  position: absolute; top: 14px; right: 14px;
+  width: 28px; height: 28px; border-radius: var(--rf-radius-sm);
+  border: 1px solid var(--rf-border-subtle); background: var(--rf-bg-elevated);
+  display: grid; place-items: center; cursor: pointer; color: var(--rf-text-muted);
+  transition: all var(--rf-transition);
+}
+.rf-modal-close:hover { background: var(--rf-bg-hover); color: var(--rf-text-primary); border-color: var(--rf-border-strong); }
+
+/* ── switch link ── */
+.rf-switch-link {
+  color: var(--rf-accent); font-weight: 600; cursor: pointer;
+  text-decoration: none; background: none; border: none; padding: 0;
+  transition: color var(--rf-transition);
+}
+.rf-switch-link:hover { color: var(--rf-accent-hover); }
+
+/* ── forgot link ── */
+.rf-forgot-link {
+  font-size: 12px; color: var(--rf-accent); font-weight: 500;
+  cursor: pointer; background: none; border: none; padding: 0;
+  transition: color var(--rf-transition);
+}
+.rf-forgot-link:hover { color: var(--rf-accent-hover); }

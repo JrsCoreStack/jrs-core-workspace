@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Syne, DM_Sans, Space_Grotesk } from "next/font/google";
+import { Syne, DM_Sans, Space_Grotesk, DM_Mono } from "next/font/google";
 
 const syne = Syne({
   subsets: ["latin"],
@@ -12,6 +12,13 @@ const dmSans = DM_Sans({
   subsets: ["latin"],
   weight: ["400", "500", "600"],
   variable: "--font-rf-body",
+  display: "swap",
+});
+
+const dmMono = DM_Mono({
+  subsets: ["latin"],
+  weight: ["400", "500"],
+  variable: "--font-rf-mono",
   display: "swap",
 });
 
@@ -33,7 +40,7 @@ export default function AuthLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <div
-      className={`${syne.variable} ${dmSans.variable} ${spaceGrotesk.variable} flex min-h-svh w-full min-w-0 flex-1 flex-col`}
+      className={`${syne.variable} ${dmSans.variable} ${dmMono.variable} ${spaceGrotesk.variable} flex min-h-svh w-full min-w-0 flex-1 flex-col`}
     >
       {children}
     </div>
