@@ -7,11 +7,9 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import { AuthDto } from './dtos/create';
 import { compareSync as bcryptCompareSync } from 'bcrypt';
-import { UserAccountService } from '../user_account/user_account.service';
 import { AccountService } from '../account/account.service';
 import { UserService } from '../user/user.service';
 import { UserStatus } from 'src/utils/enums/user_status.enum';
-import { PermissionService } from '../permission/permission.service';
 import {
   VIRTUAL_COCKPIT_ACCOUNT_ID,
   VIRTUAL_COCKPIT_ACCOUNT_NAME,
@@ -20,11 +18,9 @@ import {
 @Injectable()
 export class AuthService {
   constructor(
-    private readonly userAccountService: UserAccountService,
     private readonly jwtService: JwtService,
     private readonly accountService: AccountService,
     private readonly userService: UserService,
-    private readonly permissionService: PermissionService,
   ) { }
 
   /** Evita exceção se o hash no banco estiver corrompido ou em texto plano legado */
@@ -41,7 +37,6 @@ export class AuthService {
 
   async signIn(data: AuthDto) {
     const cpfDigits = data.cpf.replace(/\D/g, '');
-    // Busca direta em erp_user — o find por relação em user_account pode falhar silenciosamente em alguns cenários TypeORM
     const userEntity = await this.userService.findByCpf(cpfDigits);
     if (
       !userEntity ||
@@ -80,101 +75,32 @@ export class AuthService {
     // Atualizar último login
     await this.userService.updateLastLogin(userEntity.id);
 
-    // Buscar todas as contas vinculadas ao usuário
-    const allUserAccounts = await this.userAccountService.findByUserId(
-      userEntity.id,
-    );
-
-    const useVirtualAccount = allUserAccounts.length === 0;
-
-    let currentAccount: { id: string; name: string };
-    let currentAccountId: string;
-    let accounts: Array<{
-      id: string;
-      name: string;
-      code: string;
-      email: string;
-      type: number;
-      level: string;
-    }>;
-
-    if (useVirtualAccount) {
-      /* Cadastro minimalista: só `erp_user`, sem linha em `erp_user_account` */
-      currentAccountId = VIRTUAL_COCKPIT_ACCOUNT_ID;
-      currentAccount = {
+    /* Projeto sem vínculo user↔account: sempre conta virtual. Role/permissões vazios. */
+    const currentAccountId = VIRTUAL_COCKPIT_ACCOUNT_ID;
+    const currentAccount = {
+      id: VIRTUAL_COCKPIT_ACCOUNT_ID,
+      name: VIRTUAL_COCKPIT_ACCOUNT_NAME,
+    };
+    const accounts = [
+      {
         id: VIRTUAL_COCKPIT_ACCOUNT_ID,
         name: VIRTUAL_COCKPIT_ACCOUNT_NAME,
-      };
-      accounts = [
-        {
-          id: VIRTUAL_COCKPIT_ACCOUNT_ID,
-          name: VIRTUAL_COCKPIT_ACCOUNT_NAME,
-          code: '',
-          email: '',
-          type: 0,
-          level: '',
-        },
-      ];
-    } else {
-      // Determinar a conta atual (primeira conta por padrão)
-      currentAccount = allUserAccounts[0].account;
-      currentAccountId = allUserAccounts[0].account_id;
+        code: '',
+        email: '',
+        type: 0,
+        level: '',
+      },
+    ];
 
-      // Se foi passado um current_account_id no DTO, verificar se o usuário tem acesso
-      if (data.current_account_id) {
-        const requestedAccount = allUserAccounts.find(
-          (ua) => ua.account_id === data.current_account_id,
-        );
-        if (requestedAccount) {
-          currentAccount = requestedAccount.account;
-          currentAccountId = requestedAccount.account_id;
-        }
-      }
+    const role = null;
+    const permissions: string[] = [];
 
-      accounts = allUserAccounts.map((userAccount) => ({
-        id: userAccount.account.id,
-        name: userAccount.account.name,
-        code: userAccount.account.code,
-        email: userAccount.account.email,
-        type: userAccount.account.type,
-        level: userAccount.account.level,
-      }));
-    }
-
-    // Buscar role e permissões do usuário na conta atual
-    const role = await this.permissionService.getUserRole(
-      userEntity.id,
-      currentAccountId,
-    );
-    const permissions = await this.permissionService.getUserPermissions(
-      userEntity.id,
-      currentAccountId,
-    );
-
-    let payload: {
-      sub: string;
-      cpf: string;
-      current_account_id: string;
-      user_id: string;
+    const payload = {
+      sub: userEntity.id,
+      cpf: userEntity.cpf,
+      current_account_id: currentAccountId,
+      user_id: userEntity.id,
     };
-    if (useVirtualAccount) {
-      payload = {
-        sub: userEntity.id,
-        cpf: userEntity.cpf,
-        current_account_id: currentAccountId,
-        user_id: userEntity.id,
-      };
-    } else {
-      const primaryUserAccount =
-        allUserAccounts.find((ua) => ua.account_id === currentAccountId) ??
-        allUserAccounts[0];
-      payload = {
-        sub: primaryUserAccount.id,
-        cpf: userEntity.cpf,
-        current_account_id: currentAccountId,
-        user_id: userEntity.id,
-      };
-    }
 
     const token = this.jwtService.sign(payload);
     return {
@@ -198,6 +124,10 @@ export class AuthService {
 
   }
 
+  /**
+   * Emite novo JWT com `current_account_id` atualizado.
+   * Não há `erp_user_account` neste projeto — valida só token + existência da conta em `erp_account`.
+   */
   async updateToken(
     currentToken: string,
     account_id: string,
@@ -210,55 +140,38 @@ export class AuthService {
     role: string | null;
     permissions: string[];
   }> {
-    const account = await this.accountService.findById(account_id);
     try {
+      const account = await this.accountService.findById(account_id);
       const decodedToken = this.jwtService.decode(currentToken) as {
-        [key: string]: any;
-      };
+        [key: string]: unknown;
+      } | null;
 
       if (!decodedToken) {
         throw new UnauthorizedException('Token inválido.');
       }
 
-      const userId = decodedToken.user_id || decodedToken.sub;
-
-      // Verificar se o usuário tem acesso à conta solicitada
-      const userAccountForTargetAccount =
-        await this.userAccountService.findAll(account_id);
-      const hasAccessToAccount = userAccountForTargetAccount.find(
-        (ua) => ua.user_id === userId,
-      );
-
-      if (!hasAccessToAccount) {
-        throw new UnauthorizedException(
-          'Usuário não tem acesso à conta solicitada.',
-        );
+      const userId = (decodedToken.user_id ?? decodedToken.sub) as string;
+      if (!userId) {
+        throw new UnauthorizedException('Token inválido.');
       }
-
-      // Buscar role e permissões do usuário na nova conta
-      const role = await this.permissionService.getUserRole(userId, account_id);
-      const permissions = await this.permissionService.getUserPermissions(
-        userId,
-        account_id,
-      );
-
-      decodedToken.current_account_id = account_id;
 
       const { iat, exp, ...payload } = decodedToken;
+      const nextPayload = {
+        ...payload,
+        user_id: userId,
+        current_account_id: account_id,
+      };
 
-      if (!payload.user_id) {
-        payload.user_id = userId;
-      }
-
-      const token = this.jwtService.sign(payload);
+      const token = this.jwtService.sign(nextPayload);
 
       return {
         token,
-        account: account,
-        role: role || null,
-        permissions: permissions || [],
+        account,
+        role: null,
+        permissions: [],
       };
-    } catch (error) {
+    } catch (e) {
+      if (e instanceof UnauthorizedException) throw e;
       throw new UnauthorizedException('Erro ao atualizar o token.');
     }
   }

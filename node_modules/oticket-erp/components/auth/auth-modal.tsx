@@ -389,6 +389,7 @@ function AuthTabs({
 }) {
   return (
     <div
+      className="auth-tabs-rf"
       style={{
         display: "flex",
         gap: 2,
@@ -422,6 +423,80 @@ function AuthTabs({
           {t === "login" ? "Entrar" : "Criar conta"}
         </button>
       ))}
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Hero mobile — gradiente + headline (referência layout mobile)
+───────────────────────────────────────────────────────────────────────── */
+function AuthMobileHero({ tab }: { tab: Tab }) {
+  const isLogin = tab === "login";
+  return (
+    <div className="auth-mobile-hero">
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 10,
+          position: "relative",
+          zIndex: 1,
+          marginBottom: 16,
+        }}
+      >
+        <OrbitMark size={32} />
+        <span
+          style={{
+            fontFamily:
+              "var(--font-rf-display, var(--font-orbit-brand, sans-serif))",
+            fontSize: 17,
+            fontWeight: 700,
+            color: "var(--rf-text-primary)",
+            letterSpacing: "-0.02em",
+          }}
+        >
+          Orbit
+        </span>
+      </div>
+      <div style={{ position: "relative", zIndex: 1 }}>
+        <h2
+          style={{
+            fontFamily: "var(--font-rf-display, sans-serif)",
+            fontSize: "clamp(1.35rem, 4.2vw, 1.5rem)",
+            fontWeight: 800,
+            lineHeight: 1.25,
+            color: "var(--rf-text-primary)",
+            letterSpacing: "-0.4px",
+            marginBottom: 10,
+          }}
+        >
+          {isLogin ? (
+            <>
+              Gestão de{" "}
+              <span style={{ color: "var(--rf-accent)" }}>rituais</span> que
+              geram resultados.
+            </>
+          ) : (
+            <>
+              Comece a{" "}
+              <span style={{ color: "var(--rf-accent)" }}>transformar</span> sua
+              gestão hoje.
+            </>
+          )}
+        </h2>
+        <p
+          style={{
+            fontSize: 13,
+            color: "var(--rf-text-secondary)",
+            lineHeight: 1.55,
+            margin: 0,
+          }}
+        >
+          {isLogin
+            ? "Acompanhe metas, KPIs e planos de ação em um único cockpit estratégico."
+            : "Configure sua equipe e comece a acompanhar resultados em minutos."}
+        </p>
+      </div>
     </div>
   );
 }
@@ -1106,7 +1181,7 @@ function AccountCreatedDialog({
    Formulário de Login
 ───────────────────────────────────────────────────────────────────────── */
 function LoginForm({ onSwitchTab }: { onSwitchTab: () => void }) {
-  const [email, setEmail] = useState("");
+  const [cpf, setCpf] = useState("");
   const [password, setPassword] = useState("");
   const [showPw, setShowPw] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -1151,7 +1226,17 @@ function LoginForm({ onSwitchTab }: { onSwitchTab: () => void }) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isLocked) return;
-    if (!email.trim() || !password) return;
+    if (!cpf.trim() || !password) return;
+
+    const cpfDigits = cpf.replace(/\D/g, "");
+    if (cpfDigits.length !== 11) {
+      setError("Informe o CPF completo (11 dígitos). O login usa CPF, não e-mail.");
+      return;
+    }
+    if (!isValidCpf(cpf)) {
+      setError("CPF inválido. Confira os números digitados.");
+      return;
+    }
 
     setError("");
     setLoading(true);
@@ -1159,7 +1244,7 @@ function LoginForm({ onSwitchTab }: { onSwitchTab: () => void }) {
     try {
       const res = await signIn("credentials", {
         redirect: false,
-        cpf: email.trim(),   // campo deve ser "cpf" — o authorize do NextAuth espera esse nome
+        cpf: cpf.trim(),
         password,
       });
 
@@ -1180,15 +1265,17 @@ function LoginForm({ onSwitchTab }: { onSwitchTab: () => void }) {
         setError("Conta bloqueada por 2 minutos após 5 tentativas inválidas.");
       } else {
         saveLock({ until: 0, attempts: newAttempts });
-        const errorMsg = res?.error ?? "E-mail ou senha incorretos.";
+        const err = res?.error ?? "";
         setError(
-          errorMsg.includes("credentials")
-            ? "E-mail ou senha incorretos. Verifique e tente novamente."
-            : errorMsg,
+          err.includes("CredentialsSignin") || err.toLowerCase().includes("credential")
+            ? "CPF ou senha incorretos. Confira os dados ou se a API está em execução (ex.: http://localhost:8081)."
+            : err || "Não foi possível entrar. Tente novamente.",
         );
       }
     } catch {
-      setError("Erro de conexão. Tente novamente.");
+      setError(
+        "Erro de conexão. Verifique se a API está rodando (ex.: porta 8081) e tente de novo.",
+      );
     } finally {
       setLoading(false);
     }
@@ -1234,17 +1321,21 @@ function LoginForm({ onSwitchTab }: { onSwitchTab: () => void }) {
         )}
         {hasError && !isLocked && (
           <ErrorBanner
-            title="Credenciais inválidas"
-            message="E-mail ou senha incorretos. Verifique e tente novamente."
+            title="Não foi possível entrar"
+            message={error}
           />
         )}
 
-        <Field label="CPF" icon={<IconUser />}>
+        <Field
+          label="CPF"
+          icon={<IconUser />}
+          hint="Use o CPF cadastrado (11 dígitos). Este login não aceita e-mail."
+        >
           <FieldInput
             type="text"
             placeholder="000.000.000-00"
-            value={email}
-            onChange={(e) => setEmail(formatCpf(e.target.value))}
+            value={cpf}
+            onChange={(e) => setCpf(formatCpf(e.target.value))}
             hasIcon
             error={hasError && !isLocked}
             disabled={isLocked}
@@ -1330,7 +1421,7 @@ function LoginForm({ onSwitchTab }: { onSwitchTab: () => void }) {
         <button
           type="submit"
           className={`rf-btn-auth${btnDanger ? " danger" : ""}`}
-          disabled={loading || isLocked || !email.trim() || !password}
+          disabled={loading || isLocked || !cpf.trim() || !password}
         >
           {loading ? (
             <span style={{ opacity: 0.7 }}>Entrando…</span>
@@ -1522,7 +1613,7 @@ function RegisterForm({ onSwitchTab }: { onSwitchTab: () => void }) {
         )}
 
         {/* Nome + Sobrenome */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+        <div className="auth-register-name-row" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
           <Field label="Nome" error={errors.firstName}>
             <FieldInput
               type="text"
@@ -1746,15 +1837,21 @@ export function AuthModal({ defaultTab = "login" }: { defaultTab?: Tab }) {
 
   return (
     <div
-      className="rf-auth"
+      className="rf-auth auth-root"
       style={{
-        display: "flex",
         minHeight: "100svh",
         background: "var(--rf-bg-base)",
       }}
     >
       {/* CSS responsivo inline */}
       <style>{`
+        .auth-root {
+          display: flex;
+          flex-direction: column;
+        }
+        @media (min-width: 900px) {
+          .auth-root { flex-direction: row; }
+        }
         .auth-brand-panel {
           display: none;
           flex-direction: column;
@@ -1765,12 +1862,75 @@ export function AuthModal({ defaultTab = "login" }: { defaultTab?: Tab }) {
           .auth-brand-panel { display: flex; }
           .auth-form-side { flex: 1; }
         }
+        .auth-mobile-hero {
+          display: none;
+          flex-direction: column;
+          position: relative;
+          overflow: hidden;
+          padding: max(12px, env(safe-area-inset-top)) 20px 8px;
+          background: linear-gradient(180deg, #fbfdff 0%, #f3f5ff 42%, #eceef5 100%);
+        }
+        .auth-mobile-hero::before {
+          content: "";
+          position: absolute;
+          inset: 0;
+          background:
+            radial-gradient(ellipse 90% 70% at 15% 95%, rgba(127, 86, 217, 0.14) 0%, transparent 58%),
+            radial-gradient(ellipse 55% 45% at 88% 8%, rgba(0, 212, 255, 0.07) 0%, transparent 55%);
+          pointer-events: none;
+        }
+        @media (max-width: 899px) {
+          .auth-mobile-hero { display: flex; }
+        }
+        @media (max-width: 899px) {
+          .auth-form-side {
+            flex-direction: column !important;
+            padding: 0 !important;
+            align-items: stretch !important;
+            justify-content: flex-start !important;
+            background: #ffffff !important;
+            min-height: 0 !important;
+            flex: 1;
+          }
+          .auth-form-card {
+            max-width: none !important;
+            flex: 1;
+            margin-top: -10px;
+            border-radius: 20px 20px 0 0 !important;
+            border: none !important;
+            border-top: 1px solid rgba(208, 213, 221, 0.45) !important;
+            box-shadow: 0 -8px 32px rgba(13, 15, 20, 0.06) !important;
+            padding: 24px 20px max(24px, env(safe-area-inset-bottom)) !important;
+          }
+          .auth-logo-above-tabs { display: none !important; }
+          .auth-tabs-rf {
+            border-radius: 999px !important;
+            padding: 4px !important;
+            background: #eef0f4 !important;
+            border: 1px solid rgba(208, 213, 221, 0.55) !important;
+          }
+          .rf-auth .auth-form-card input:not([type="checkbox"]) {
+            background: #f9fafb !important;
+            border-color: #d0d5dd !important;
+          }
+          .auth-register-name-row {
+            grid-template-columns: 1fr !important;
+          }
+        }
+        @media (min-width: 520px) and (max-width: 899px) {
+          .auth-register-name-row {
+            grid-template-columns: 1fr 1fr !important;
+          }
+        }
       `}</style>
 
       {/* ── Painel esquerdo: marca ── */}
       <div className="auth-brand-panel">
         <BrandPanel tab={tab} />
       </div>
+
+      {/* ── Hero apenas no layout mobile (max-width 899px) ── */}
+      <AuthMobileHero tab={tab} />
 
       {/* ── Painel direito: fundo base + card centralizado ── */}
       <div
@@ -1787,6 +1947,7 @@ export function AuthModal({ defaultTab = "login" }: { defaultTab?: Tab }) {
       >
         {/* Card do formulário — borda curva + sombra */}
         <div
+          className="auth-form-card"
           style={{
             width: "100%",
             maxWidth: 420,
@@ -1800,6 +1961,7 @@ export function AuthModal({ defaultTab = "login" }: { defaultTab?: Tab }) {
         >
           {/* Ícone Orbit acima dos tabs */}
           <div
+            className="auth-logo-above-tabs"
             style={{
               display: "flex",
               justifyContent: "center",

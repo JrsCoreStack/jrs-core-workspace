@@ -8,7 +8,7 @@ import { PermissionGuard } from 'src/guards/permission.guard';
 import { RequirePermission } from 'src/decorators/permission.decorator';
 import { Permission } from 'src/utils/enums/permission.enum';
 
-@ApiTags('Papéis (Roles)')
+@ApiTags('Papï¿½is (Roles)')
 @ApiBearerAuth()
 @Controller('role')
 export class RoleController {

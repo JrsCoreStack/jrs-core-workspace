@@ -9,7 +9,6 @@ import { UserModule } from './modules/user/user.module';
 import { UserAccountModule } from './modules/user_account/user_account.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { EventModule } from './modules/event/event.module';
-import { TransactionModule } from './modules/transaction/transaction.module';
 import { BankModule } from './modules/bank/bank.module';
 import { BankAccountModule } from './modules/bank_account/bank_account.module';
 import { StatementTypeModule } from './modules/statement_type/statement_type.module';
@@ -28,8 +27,6 @@ import { RoleModule } from './modules/role/role.module';
 import { PermissionModule } from './modules/permission/permission.module';
 import { ProducerPayoutModule } from './modules/producer_payout/producer_payout.module';
 import { SalesSyncModule } from './modules/sales_sync/sales-sync.module';
-import { ProductCategoryModule } from './modules/product_category/product_category.module';
-import { ProductModule } from './modules/product/product.module';
 import { CockpitRitualModule } from './modules/cockpit_ritual/cockpit_ritual.module';
 import { CockpitMeetingModule } from './modules/cockpit_meeting/cockpit_meeting.module';
 import { CockpitActionPlanModule } from './modules/cockpit_action_plan/cockpit_action_plan.module';
@@ -73,7 +70,6 @@ import { CockpitReportModule } from './modules/cockpit_report/cockpit_report.mod
     UserModule,
     UserAccountModule,
     EventModule,
-    TransactionModule,
     StatementOrganizationModule,
     StatementProducerModule,
     BankModule,
@@ -91,8 +87,6 @@ import { CockpitReportModule } from './modules/cockpit_report/cockpit_report.mod
     RoleModule,
     PermissionModule,
     SalesSyncModule,
-    ProductCategoryModule,
-    ProductModule,
     CockpitRitualModule,
     CockpitMeetingModule,
     CockpitActionPlanModule,
