@@ -12,6 +12,10 @@ import { AccountService } from '../account/account.service';
 import { UserService } from '../user/user.service';
 import { UserStatus } from 'src/utils/enums/user_status.enum';
 import { PermissionService } from '../permission/permission.service';
+import {
+  VIRTUAL_COCKPIT_ACCOUNT_ID,
+  VIRTUAL_COCKPIT_ACCOUNT_NAME,
+} from './virtual-account';
 
 @Injectable()
 export class AuthService {
@@ -81,40 +85,61 @@ export class AuthService {
       userEntity.id,
     );
 
-    if (allUserAccounts.length === 0) {
-      throw new HttpException(
+    const useVirtualAccount = allUserAccounts.length === 0;
+
+    let currentAccount: { id: string; name: string };
+    let currentAccountId: string;
+    let accounts: Array<{
+      id: string;
+      name: string;
+      code: string;
+      email: string;
+      type: number;
+      level: string;
+    }>;
+
+    if (useVirtualAccount) {
+      /* Cadastro minimalista: só `erp_user`, sem linha em `erp_user_account` */
+      currentAccountId = VIRTUAL_COCKPIT_ACCOUNT_ID;
+      currentAccount = {
+        id: VIRTUAL_COCKPIT_ACCOUNT_ID,
+        name: VIRTUAL_COCKPIT_ACCOUNT_NAME,
+      };
+      accounts = [
         {
-          message: 'Usuário sem conta vinculada no sistema',
-          code: 4,
+          id: VIRTUAL_COCKPIT_ACCOUNT_ID,
+          name: VIRTUAL_COCKPIT_ACCOUNT_NAME,
+          code: '',
+          email: '',
+          type: 0,
+          level: '',
         },
-        HttpStatus.UNAUTHORIZED,
-      );
-    }
+      ];
+    } else {
+      // Determinar a conta atual (primeira conta por padrão)
+      currentAccount = allUserAccounts[0].account;
+      currentAccountId = allUserAccounts[0].account_id;
 
-    // Determinar a conta atual (primeira conta por padrão)
-    let currentAccount = allUserAccounts[0].account;
-    let currentAccountId = allUserAccounts[0].account_id;
-
-    // Se foi passado um current_account_id no DTO, verificar se o usuário tem acesso
-    if (data.current_account_id) {
-      const requestedAccount = allUserAccounts.find(
-        (ua) => ua.account_id === data.current_account_id,
-      );
-      if (requestedAccount) {
-        currentAccount = requestedAccount.account;
-        currentAccountId = requestedAccount.account_id;
+      // Se foi passado um current_account_id no DTO, verificar se o usuário tem acesso
+      if (data.current_account_id) {
+        const requestedAccount = allUserAccounts.find(
+          (ua) => ua.account_id === data.current_account_id,
+        );
+        if (requestedAccount) {
+          currentAccount = requestedAccount.account;
+          currentAccountId = requestedAccount.account_id;
+        }
       }
-    }
 
-    // Mapear todas as contas para o formato de retorno
-    const accounts = allUserAccounts.map((userAccount) => ({
-      id: userAccount.account.id,
-      name: userAccount.account.name,
-      code: userAccount.account.code,
-      email: userAccount.account.email,
-      type: userAccount.account.type,
-      level: userAccount.account.level,
-    }));
+      accounts = allUserAccounts.map((userAccount) => ({
+        id: userAccount.account.id,
+        name: userAccount.account.name,
+        code: userAccount.account.code,
+        email: userAccount.account.email,
+        type: userAccount.account.type,
+        level: userAccount.account.level,
+      }));
+    }
 
     // Buscar role e permissões do usuário na conta atual
     const role = await this.permissionService.getUserRole(
@@ -126,16 +151,30 @@ export class AuthService {
       currentAccountId,
     );
 
-    const primaryUserAccount =
-      allUserAccounts.find((ua) => ua.account_id === currentAccountId) ??
-      allUserAccounts[0];
-
-    const payload = {
-      sub: primaryUserAccount.id,
-      cpf: userEntity.cpf,
-      current_account_id: currentAccountId,
-      user_id: userEntity.id,
+    let payload: {
+      sub: string;
+      cpf: string;
+      current_account_id: string;
+      user_id: string;
     };
+    if (useVirtualAccount) {
+      payload = {
+        sub: userEntity.id,
+        cpf: userEntity.cpf,
+        current_account_id: currentAccountId,
+        user_id: userEntity.id,
+      };
+    } else {
+      const primaryUserAccount =
+        allUserAccounts.find((ua) => ua.account_id === currentAccountId) ??
+        allUserAccounts[0];
+      payload = {
+        sub: primaryUserAccount.id,
+        cpf: userEntity.cpf,
+        current_account_id: currentAccountId,
+        user_id: userEntity.id,
+      };
+    }
 
     const token = this.jwtService.sign(payload);
     return {

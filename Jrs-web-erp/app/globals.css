@@ -173,6 +173,14 @@
   --rf-transition:     0.18s cubic-bezier(0.4,0,0.2,1);
 }
 
+/* ── Auth: inputs — placeholder + focus ── */
+.rf-auth input::placeholder { color: var(--rf-text-muted); }
+.rf-auth input:focus {
+  border-color: var(--rf-accent) !important;
+  box-shadow: 0 0 0 3px var(--rf-accent-soft) !important;
+  outline: none;
+}
+
 /* ── Auth: cursor em elementos clicáveis ── */
 .rf-auth button,
 .rf-auth a,

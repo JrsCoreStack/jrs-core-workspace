@@ -81,61 +81,46 @@ export const config = {
     Credentials({
       name: "Credentials",
       credentials: {
+        // aceita o campo como "cpf" — formulário deve enviar { cpf, password }
         cpf: { label: "CPF", type: "text" },
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
-        if (!credentials?.cpf || !credentials?.password) {
+        const loginValue = (credentials?.cpf as string | undefined)?.trim();
+        if (!loginValue || !credentials?.password) {
           return null;
         }
 
         try {
-          // Remove formatação do CPF (pontos e traços)
-          const cpfClean = (credentials.cpf as string).replace(/\D/g, "");
-          
+          const cpfClean = loginValue.replace(/\D/g, "");
+
           const signInData: SignInDTO = {
             cpf: cpfClean,
             password: credentials.password as string,
           };
 
           const data = await signInUser(signInData);
+          if (!data) return null;
 
-          if (!data) {
-            return null;
-          }
+          // Shape da API: { user: { id, name, email, cpf }, account, accounts, current_account_id, role, permissions, token }
+          const anyData = data as Record<string, unknown>;
+          const userObj = (anyData.user ?? {}) as Record<string, unknown>;
+          const token = (anyData.token ?? anyData.accessToken) as string | undefined;
 
-          // Ajuste aqui conforme a estrutura da resposta da sua API
-          // Exemplo esperado: { user: { id, email, name }, token: "...", accounts: [...], role: "...", permissions: [...] }
-          if ("user" in data && data.user && data.token) {
-            const user = data.user as any; // Type assertion para permitir _id
-            return {
-              id: user.id || user._id || String(user.id || user._id),
-              email: user.email,
-              name: user.name || user.username || user.email,
-              accessToken: data.token || data.accessToken,
-              accounts: data.accounts || [],
-              role: data.role,
-              permissions: data.permissions || [],
-            };
-          }
+          if (!token) return null;
 
-          // Se sua API retorna de forma diferente, ajuste aqui
-          // Exemplo alternativo: { id, email, name, token, accounts, role, permissions }
-          if ("id" in data && data.id && data.email) {
-            return {
-              id: String(data.id),
-              email: data.email,
-              name: data.name || data.username || data.email,
-              accessToken: data.token || data.accessToken,
-              accounts: data.accounts || [],
-              role: data.role,
-              permissions: data.permissions || [],
-            };
-          }
-
-          return null;
+          return {
+            id: String(userObj.id ?? userObj._id ?? ""),
+            email: (userObj.email as string) ?? "",
+            name: (userObj.name as string) ?? (userObj.email as string) ?? "",
+            accessToken: token,
+            accounts: (anyData.accounts as unknown[]) ?? [],
+            role: anyData.role as string | undefined,
+            permissions: (anyData.permissions as string[]) ?? [],
+            currentAccountId: anyData.current_account_id as string | undefined,
+          };
         } catch (error) {
-          console.error("Auth error:", error);
+          console.error("Auth authorize error:", error);
           return null;
         }
       },

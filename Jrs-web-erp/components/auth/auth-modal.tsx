@@ -32,6 +32,21 @@ const LOCK_KEY = "rf_login_lock";
 const MAX_ATTEMPTS = 5;
 const LOCK_DURATION_MS = 2 * 60 * 1000;
 
+/* ── Máscaras de input ── */
+function formatCpf(v: string) {
+  const d = v.replace(/\D/g, "").slice(0, 11);
+  if (d.length <= 3) return d;
+  if (d.length <= 6) return `${d.slice(0, 3)}.${d.slice(3)}`;
+  if (d.length <= 9) return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6)}`;
+  return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6, 9)}-${d.slice(9)}`;
+}
+function formatPhone(v: string) {
+  const d = v.replace(/\D/g, "").slice(0, 11);
+  if (d.length <= 2) return d;
+  if (d.length <= 7) return `(${d.slice(0, 2)}) ${d.slice(2)}`;
+  return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`;
+}
+
 /* ─────────────────────────────────────────────────────────────────────────
    Utilitários de lockout
 ───────────────────────────────────────────────────────────────────────── */
@@ -196,6 +211,7 @@ function Field({ label, icon, error, hint, children }: FieldProps) {
               display: "flex",
               alignItems: "center",
               pointerEvents: "none",
+              zIndex: 1,
             }}
           >
             {icon}
@@ -508,11 +524,11 @@ function BrandPanel({ tab }: { tab: Tab }) {
         flex: 1,
         display: "flex",
         flexDirection: "column",
-        padding: "40px 36px",
+        padding: "36px 44px",
         position: "relative",
         overflow: "hidden",
-        background: "var(--rf-bg-elevated)",
-        borderRight: "1px solid var(--rf-border-subtle)",
+        background: "var(--rf-bg-base)",
+        minHeight: "100svh",
       }}
     >
       {/* Gradientes decorativos */}
@@ -522,22 +538,23 @@ function BrandPanel({ tab }: { tab: Tab }) {
           position: "absolute",
           inset: 0,
           background: `
-            radial-gradient(ellipse 60% 50% at 20% 80%, rgba(123,97,255,0.14) 0%, transparent 70%),
-            radial-gradient(ellipse 50% 40% at 80% 20%, rgba(0,212,255,0.08) 0%, transparent 70%)
+            radial-gradient(ellipse 70% 55% at 15% 85%, rgba(123,97,255,0.13) 0%, transparent 65%),
+            radial-gradient(ellipse 55% 45% at 85% 15%, rgba(0,212,255,0.07) 0%, transparent 65%),
+            radial-gradient(ellipse 40% 35% at 50% 50%, rgba(123,97,255,0.04) 0%, transparent 70%)
           `,
           pointerEvents: "none",
         }}
       />
 
-      {/* Logo */}
+      {/* Logo — topo */}
       <div
         style={{
           display: "flex",
           alignItems: "center",
           gap: 10,
-          marginBottom: "auto",
           position: "relative",
           zIndex: 1,
+          marginBottom: 0,
         }}
       >
         <OrbitMark size={32} />
@@ -553,8 +570,11 @@ function BrandPanel({ tab }: { tab: Tab }) {
         </span>
       </div>
 
-      {/* Conteúdo da marca */}
-      <div style={{ position: "relative", zIndex: 1 }}>
+      {/* Espaçador flexível — empurra o conteúdo para o centro/baixo */}
+      <div style={{ flex: "0 0 15%" }} />
+
+      {/* Conteúdo da marca — centro-baixo */}
+      <div style={{ position: "relative", zIndex: 1, flex: 1, display: "flex", flexDirection: "column", justifyContent: "center" }}>
         <h2
           style={{
             fontFamily: "var(--font-rf-display, sans-serif)",
@@ -603,9 +623,10 @@ function BrandPanel({ tab }: { tab: Tab }) {
                 alignItems: "center",
                 gap: 10,
                 padding: "10px 12px",
-                background: "var(--rf-bg-hover)",
-                border: "1px solid var(--rf-border-default)",
+                background: "var(--rf-bg-surface)",
+                border: "1px solid var(--rf-border-subtle)",
                 borderRadius: "var(--rf-radius-md)",
+                boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
               }}
             >
               <div
@@ -1085,7 +1106,6 @@ function AccountCreatedDialog({
    Formulário de Login
 ───────────────────────────────────────────────────────────────────────── */
 function LoginForm({ onSwitchTab }: { onSwitchTab: () => void }) {
-  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPw, setShowPw] = useState(false);
@@ -1139,14 +1159,14 @@ function LoginForm({ onSwitchTab }: { onSwitchTab: () => void }) {
     try {
       const res = await signIn("credentials", {
         redirect: false,
-        email: email.trim(),
+        cpf: email.trim(),   // campo deve ser "cpf" — o authorize do NextAuth espera esse nome
         password,
       });
 
       if (res?.ok) {
         clearLock();
-        router.push("/cockpit");
-        router.refresh();
+        // Navegação completa garante que o cookie de sessão seja enviado ao middleware (evita 307 em /home).
+        window.location.assign("/home");
         return;
       }
 
@@ -1219,21 +1239,49 @@ function LoginForm({ onSwitchTab }: { onSwitchTab: () => void }) {
           />
         )}
 
-        <Field label="E-mail ou CPF" icon={<IconMail />}>
+        <Field label="CPF" icon={<IconUser />}>
           <FieldInput
             type="text"
-            placeholder="carlos@empresa.com.br"
+            placeholder="000.000.000-00"
             value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            onChange={(e) => setEmail(formatCpf(e.target.value))}
             hasIcon
             error={hasError && !isLocked}
             disabled={isLocked}
             autoComplete="username"
+            inputMode="numeric"
           />
         </Field>
 
-        <Field label="Senha" icon={<IconLock />}>
+        <div style={{ marginBottom: 14 }}>
+          <label
+            style={{
+              display: "block",
+              fontSize: 12,
+              fontWeight: 600,
+              color: "var(--rf-text-secondary)",
+              marginBottom: 6,
+              fontFamily: "var(--font-rf-body, sans-serif)",
+            }}
+          >
+            Senha
+          </label>
           <div style={{ position: "relative" }}>
+            <span
+              style={{
+                position: "absolute",
+                left: 12,
+                top: "50%",
+                transform: "translateY(-50%)",
+                color: "var(--rf-text-muted)",
+                display: "flex",
+                alignItems: "center",
+                pointerEvents: "none",
+                zIndex: 1,
+              }}
+            >
+              <IconLock />
+            </span>
             <FieldInput
               type={showPw ? "text" : "password"}
               placeholder="••••••••"
@@ -1259,12 +1307,13 @@ function LoginForm({ onSwitchTab }: { onSwitchTab: () => void }) {
                 padding: 2,
                 cursor: "pointer",
                 display: "flex",
+                zIndex: 1,
               }}
             >
               <IconEye off={showPw} />
             </button>
           </div>
-        </Field>
+        </div>
 
         {/* Esqueci minha senha */}
         <div style={{ display: "flex", justifyContent: "flex-end", marginTop: -6, marginBottom: 20 }}>
@@ -1345,20 +1394,6 @@ function LoginForm({ onSwitchTab }: { onSwitchTab: () => void }) {
 /* ─────────────────────────────────────────────────────────────────────────
    Formulário de Cadastro
 ───────────────────────────────────────────────────────────────────────── */
-function formatCpf(v: string) {
-  const d = v.replace(/\D/g, "").slice(0, 11);
-  if (d.length <= 3) return d;
-  if (d.length <= 6) return `${d.slice(0, 3)}.${d.slice(3)}`;
-  if (d.length <= 9)
-    return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6)}`;
-  return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6, 9)}-${d.slice(9)}`;
-}
-function formatPhone(v: string) {
-  const d = v.replace(/\D/g, "").slice(0, 11);
-  if (d.length <= 2) return d;
-  if (d.length <= 7) return `(${d.slice(0, 2)}) ${d.slice(2)}`;
-  return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`;
-}
 
 type RegisterFields = {
   firstName: string;
@@ -1522,7 +1557,7 @@ function RegisterForm({ onSwitchTab }: { onSwitchTab: () => void }) {
         </Field>
 
         {/* CPF */}
-        <Field label="CPF" icon={<IconId />} error={errors.cpf}>
+        <Field label="CPF" icon={<IconUser />} error={errors.cpf}>
           <FieldInput
             type="text"
             placeholder="000.000.000-00"
@@ -1718,46 +1753,62 @@ export function AuthModal({ defaultTab = "login" }: { defaultTab?: Tab }) {
         background: "var(--rf-bg-base)",
       }}
     >
-      {/* ── Painel esquerdo: marca (oculto em mobile) ── */}
-      <div
-        className="auth-brand-panel"
-        style={{
-          display: "none",
-          width: "50%",
-        }}
-      >
-        <BrandPanel tab={tab} />
-      </div>
-
-      {/* CSS para mostrar o painel de marca em telas grandes */}
+      {/* CSS responsivo inline */}
       <style>{`
-        @media (min-width: 1024px) {
-          .auth-brand-panel {
-            display: flex !important;
-            flex-direction: column;
-          }
+        .auth-brand-panel {
+          display: none;
+          flex-direction: column;
+          width: 44%;
+          flex-shrink: 0;
         }
-        @media (min-width: 1024px) {
-          .auth-form-side {
-            width: 50% !important;
-          }
+        @media (min-width: 900px) {
+          .auth-brand-panel { display: flex; }
+          .auth-form-side { flex: 1; }
         }
       `}</style>
 
-      {/* ── Painel direito: formulário ── */}
+      {/* ── Painel esquerdo: marca ── */}
+      <div className="auth-brand-panel">
+        <BrandPanel tab={tab} />
+      </div>
+
+      {/* ── Painel direito: fundo base + card centralizado ── */}
       <div
         className="auth-form-side"
         style={{
-          width: "100%",
+          flex: 1,
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
           padding: "40px 24px",
-          background: "var(--rf-bg-surface)",
+          background: "var(--rf-bg-base)",
           minHeight: "100svh",
         }}
       >
-        <div style={{ width: "100%", maxWidth: 400 }}>
+        {/* Card do formulário — borda curva + sombra */}
+        <div
+          style={{
+            width: "100%",
+            maxWidth: 420,
+            background: "var(--rf-bg-surface)",
+            border: "1px solid var(--rf-border-default)",
+            borderRadius: "var(--rf-radius-xl)",
+            boxShadow:
+              "0 4px 24px rgba(0,0,0,0.07), 0 1px 4px rgba(0,0,0,0.05)",
+            padding: "36px 36px 32px",
+          }}
+        >
+          {/* Ícone Orbit acima dos tabs */}
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "center",
+              marginBottom: 20,
+            }}
+          >
+            <OrbitMark size={40} />
+          </div>
+
           {/* Tabs */}
           <AuthTabs tab={tab} setTab={setTab} />
 
