@@ -6,7 +6,8 @@ export default auth((req) => {
   const isLoggedIn = !!req.auth;
 
   // Rotas públicas que não precisam de autenticação
-  const publicRoutes = ["/auth", "/api/auth"];
+  // /api-proxy/* é o proxy reverso para a API NestJS — nunca bloquear aqui
+  const publicRoutes = ["/auth", "/api/auth", "/api-proxy"];
   const isPublicRoute = publicRoutes.some((route) => pathname.startsWith(route));
 
   // Se está na rota de auth e já está logado, redireciona para home

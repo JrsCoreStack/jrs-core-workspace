@@ -4,23 +4,28 @@ import { messageFromResponseData } from "@/lib/cockpit/normalize-api-message";
 import { reportCockpitTelemetry } from "@/lib/cockpit/telemetry";
 
 /**
- * Base URL das chamadas ao oticket-api-erp.
- * - Com `NEXT_PUBLIC_API_URL`: o browser fala direto com essa URL (ex.: API em outro host).
- * - Sem isso no **client**: usa `/api-proxy` → rewrite em `next.config` para 127.0.0.1:8081 (mesma origem, evita falha de rede/CORS típica em dev).
- * - No **servidor** (RSC): usa `API_URL` ou 127.0.0.1:8081.
+ * Base URL das chamadas à API JRS ERP.
+ * - Browser sem NEXT_PUBLIC_API_URL: /api-proxy → rewrite em next.config (evita CORS em dev).
+ * - Browser com NEXT_PUBLIC_API_URL: chamada direta (CORS deve permitir).
+ * - Servidor (NextAuth, RSC): API_URL → NEXT_PUBLIC_API_URL → http://127.0.0.1:8081.
+ *   Servidor NUNCA usa /api-proxy (não existe no Node).
  */
 function getApiBaseUrl(): string {
-  const explicit = process.env.NEXT_PUBLIC_API_URL?.trim();
-  if (explicit) return explicit.replace(/\/$/, "");
-  if (typeof window !== "undefined") return "/api-proxy";
-  return (process.env.API_URL || "http://127.0.0.1:8081").replace(/\/$/, "");
+  const serverUrl = process.env.API_URL?.trim();
+  const publicUrl = process.env.NEXT_PUBLIC_API_URL?.trim();
+
+  if (typeof window !== "undefined") {
+    if (publicUrl) return publicUrl.replace(/\/$/, "");
+    return "/api-proxy";
+  }
+
+  if (serverUrl) return serverUrl.replace(/\/$/, "");
+  if (publicUrl) return publicUrl.replace(/\/$/, "");
+  return "http://127.0.0.1:8081";
 }
 
-const apiUrl = getApiBaseUrl();
-
-// Cria instância do axios
+// Cria instância sem baseURL fixa — definida por requisição para não congelar no bundle server/client
 const api: AxiosInstance = axios.create({
-  baseURL: apiUrl,
   headers: {
     "Content-Type": "application/json",
   },
@@ -31,6 +36,7 @@ const api: AxiosInstance = axios.create({
 // getSession() é mais confiável que defaults.headers (evita 401 antes do useEffect do ApiAuthSync).
 api.interceptors.request.use(
   async (config: InternalAxiosRequestConfig) => {
+    config.baseURL = getApiBaseUrl();
     if (typeof window !== "undefined") {
       try {
         const session = await getSession();
@@ -117,7 +123,7 @@ api.interceptors.response.use(
       });
     }
     if (error.request) {
-      const base = error.config?.baseURL ?? apiUrl;
+      const base = error.config?.baseURL ?? getApiBaseUrl();
       return buildNormalizedReject({
         status: 0,
         message:
