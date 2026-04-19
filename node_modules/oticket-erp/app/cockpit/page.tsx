@@ -1,42 +1,24 @@
 "use client"
 
-import { Header } from "@/components/ui/header"
-import { Card, CardContent, CardHeader, CardTitle, CardAction } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import {
-  ChartContainer,
-  ChartLegend,
-  ChartLegendContent,
-  ChartTooltip,
-  ChartTooltipContent,
-} from "@/components/ui/chart"
-import { Button } from "@/components/ui/button"
-import { cn } from "@/lib/utils"
-import { COCKPIT_MAIN_CLASS } from "@/lib/cockpit/cockpit-page-shell"
-import api from "@/utils/api"
-import { COCKPIT_AREAS, areaColor, areaLabel } from "@/lib/cockpit/constants"
 import Link from "next/link"
-import {
-  AlertTriangle,
-  ClipboardList,
-  FileDown,
-  RefreshCw,
-  TrendingDown,
-} from "lucide-react"
-import { Fragment, useEffect, useMemo, useState, useSyncExternalStore } from "react"
-import {
-  Area,
-  AreaChart,
-  CartesianGrid,
-  Cell,
-  Line,
-  Pie,
-  PieChart,
-  XAxis,
-  YAxis,
-} from "recharts"
+import { useEffect, useMemo, useState } from "react"
+import api from "@/utils/api"
+import { COCKPIT_AREAS, areaColor, areaLabel, ACTION_PLAN_STATUS_LABELS } from "@/lib/cockpit/constants"
+import { SidebarTrigger } from "@/components/ui/sidebar"
+import { cn } from "@/lib/utils"
 
-/* ── helpers ── */
+/* ──────────────────────────────────────────────────────────────────────────
+   TYPES
+────────────────────────────────────────────────────────────────────────── */
+type KpiData      = Record<string, unknown>
+type PlanData     = Record<string, unknown>
+type RitualData   = Record<string, unknown>
+type MeetingData  = Record<string, unknown>
+type PeriodKey    = "week" | "month" | "year"
+
+/* ──────────────────────────────────────────────────────────────────────────
+   HELPERS
+────────────────────────────────────────────────────────────────────────── */
 function fmtVal(v: number, unit: string): string {
   if (unit === "R$" || unit === "BRL") {
     if (Math.abs(v) >= 1_000_000) return `R$ ${(v / 1_000_000).toFixed(1).replace(".", ",")}M`
@@ -47,14 +29,6 @@ function fmtVal(v: number, unit: string): string {
   return new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 1 }).format(v)
 }
 
-function devPct(current: number, goal: number): number {
-  if (!goal) return 0
-  return ((current - goal) / Math.abs(goal)) * 100
-}
-
-type KpiData = Record<string, unknown>
-
-/** GET /cockpit/kpis devolve `is_cockpit` e `current_value`; o front legado usava `show_in_cockpit` / `current`. */
 function kpiShowsInCockpit(k: KpiData): boolean {
   return k.show_in_cockpit === true || k.is_cockpit === true
 }
@@ -71,322 +45,308 @@ function kpiGoal(k: KpiData): number {
   return Number.isFinite(n) ? n : 0
 }
 
-function kpiCodeLabel(k: KpiData): string {
-  return String(k.code_ref ?? k.code ?? "")
+function devPct(current: number, goal: number): number {
+  if (!goal) return 0
+  return ((current - goal) / Math.abs(goal)) * 100
 }
 
-/** Chave estável para listas React quando `id` pode faltar. */
-function kpiReactKey(k: KpiData): string {
-  return String(k.id ?? `${kpiCodeLabel(k)}-${String(k.name ?? "")}`)
+function progressPct(current: number, goal: number): number {
+  if (!goal) return 0
+  return Math.min(100, Math.max(0, (current / goal) * 100))
 }
 
-/** Cor da série: com filtro de setor ativo, tudo acompanha a bolinha do setor; em “Todos”, cada KPI usa sua área. */
-function kpiSeriesColor(kpi: KpiData, sectorFilter: string): string {
-  if (sectorFilter && sectorFilter !== "all") return areaColor(sectorFilter)
-  return areaColor(String(kpi.area ?? ""))
-}
-
-function formatChartAxisLabel(v: unknown): string {
-  const raw = String(v ?? "")
-  if (!raw.trim() || raw === "\u00a0") return ""
-  const s = raw.trim()
-  return s.length > 13 ? `${s.slice(0, 12)}…` : s
-}
-
-type KpiResultRow = {
-  id?: string
-  period_label: string
-  value: number
-  target?: number | null
-  period_start?: string | null
-}
-type PeriodKey = "week" | "month" | "year"
-
-/** Janela de calendário (prazos de planos, ocorrência de reuniões). */
 function calendarPeriodDates(periodKey: PeriodKey, ref: Date): { from: string; to: string } {
   if (periodKey === "week") {
-    const start = new Date(ref)
-    start.setDate(start.getDate() - 6)
+    const start = new Date(ref); start.setDate(start.getDate() - 6)
     return { from: start.toISOString().slice(0, 10), to: ref.toISOString().slice(0, 10) }
   }
   if (periodKey === "month") {
-    const y = ref.getFullYear()
-    const m = ref.getMonth()
-    const start = new Date(y, m, 1)
-    const end = new Date(y, m + 1, 0)
-    return { from: start.toISOString().slice(0, 10), to: end.toISOString().slice(0, 10) }
+    const y = ref.getFullYear(), m = ref.getMonth()
+    return { from: new Date(y, m, 1).toISOString().slice(0, 10), to: new Date(y, m + 1, 0).toISOString().slice(0, 10) }
   }
   const y = ref.getFullYear()
   return { from: `${y}-01-01`, to: `${y}-12-31` }
 }
 
-/** Próximo intervalo calendário alinhado ao período (semana/mês/ano) — para o 2º bloco da lateral. */
 function nextCalendarPeriodDates(periodKey: PeriodKey, ref: Date): { from: string; to: string } {
   if (periodKey === "week") {
-    const start = new Date(ref)
-    start.setDate(start.getDate() + 1)
-    const end = new Date(ref)
-    end.setDate(end.getDate() + 7)
+    const start = new Date(ref); start.setDate(start.getDate() + 1)
+    const end = new Date(ref); end.setDate(end.getDate() + 7)
     return { from: start.toISOString().slice(0, 10), to: end.toISOString().slice(0, 10) }
   }
   if (periodKey === "month") {
-    const y = ref.getFullYear()
-    const m = ref.getMonth()
-    const start = new Date(y, m + 1, 1)
-    const end = new Date(y, m + 2, 0)
-    return { from: start.toISOString().slice(0, 10), to: end.toISOString().slice(0, 10) }
+    const y = ref.getFullYear(), m = ref.getMonth()
+    return { from: new Date(y, m + 1, 1).toISOString().slice(0, 10), to: new Date(y, m + 2, 0).toISOString().slice(0, 10) }
   }
   const y = ref.getFullYear() + 1
   return { from: `${y}-01-01`, to: `${y}-12-31` }
 }
 
-function minIsoDate(a: string, b: string): string {
-  return a < b ? a : b
+/* ──────────────────────────────────────────────────────────────────────────
+   SVG ICONS
+────────────────────────────────────────────────────────────────────────── */
+function IcDownload() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><path d="M7 10l5 5 5-5"/><line x1="12" y1="15" x2="12" y2="3"/>
+    </svg>
+  )
 }
-function maxIsoDate(a: string, b: string): string {
-  return a > b ? a : b
+function IcRefresh({ spin }: { spin?: boolean }) {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"
+      style={spin ? { animation: "cp-spin 1s linear infinite" } : undefined}>
+      <polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/>
+    </svg>
+  )
+}
+function IcCalendar() {
+  return (
+    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/>
+      <line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+    </svg>
+  )
+}
+function IcCheck() {
+  return (
+    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+      <polyline points="20 6 9 17 4 12"/>
+    </svg>
+  )
+}
+function IcWarn() {
+  return (
+    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+    </svg>
+  )
+}
+function IcCheck2() {
+  return (
+    <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+      <polyline points="20 6 9 17 4 12"/>
+    </svg>
+  )
 }
 
-function parseResultDate(r: KpiResultRow): Date | null {
-  const ps = r.period_start
-  if (!ps || typeof ps !== "string") return null
-  const d = new Date(ps.slice(0, 10) + "T12:00:00")
-  return Number.isNaN(d.getTime()) ? null : d
+/* ──────────────────────────────────────────────────────────────────────────
+   KPI CARD
+────────────────────────────────────────────────────────────────────────── */
+function KpiCard({ kpi, highlight }: { kpi: KpiData; highlight?: boolean }) {
+  const current  = kpiCurrent(kpi)
+  const goal     = kpiGoal(kpi)
+  const unit     = (kpi.unit as string) ?? ""
+  const dev      = devPct(current, goal)
+  const progress = progressPct(current, goal)
+  const isUp     = dev >= 0
+  const id       = String(kpi.id ?? "")
+
+  return (
+    <Link
+      href={id ? `/cockpit/kpis/${id}` : "#"}
+      className={cn("cp-kpi-card", highlight && "cp-kpi-highlight")}
+    >
+      <div className="cp-kpi-label">{kpi.name as string}</div>
+      <div className="cp-kpi-value">{fmtVal(current, unit)}</div>
+      <span className={cn("cp-kpi-delta", isUp ? "cp-delta-up" : "cp-delta-down")}>
+        {isUp ? "▲" : "▼"} {Math.abs(dev).toFixed(1)}%
+      </span>
+      {goal > 0 && (
+        <div className="cp-kpi-sub">
+          Meta: {fmtVal(goal, unit)}
+        </div>
+      )}
+      <div className="cp-progress-bar">
+        <div className="cp-progress-fill" style={{ width: `${progress}%` }} />
+      </div>
+    </Link>
+  )
 }
 
-/** Mantém pontos cujo `period_start` cai na janela; se nenhum tiver data, devolve tudo (compatibilidade). */
-function filterResultsByPeriod(rows: KpiResultRow[], periodKey: PeriodKey, ref: Date): KpiResultRow[] {
-  if (rows.length === 0) return rows
-  const anyDate = rows.some((r) => parseResultDate(r) != null)
-  if (!anyDate) return rows
-  return rows.filter((r) => {
-    const d = parseResultDate(r)
-    if (!d) return true
-    if (periodKey === "week") {
-      const start = new Date(ref)
-      start.setDate(start.getDate() - 6)
-      start.setHours(0, 0, 0, 0)
-      const end = new Date(ref)
-      end.setHours(23, 59, 59, 999)
-      return d >= start && d <= end
-    }
-    if (periodKey === "month") {
-      return d.getMonth() === ref.getMonth() && d.getFullYear() === ref.getFullYear()
-    }
-    return d.getFullYear() === ref.getFullYear()
-  })
-}
-
-/* ── KPI chart: API lista vem sem `results`; detalhe traz histórico. Ordem cronológica para o eixo X. ── */
-function KpiChart({
-  kpi,
-  height = 100,
-  periodKey,
-  sectorFilter,
-}: {
-  kpi: KpiData
-  height?: number
-  periodKey: PeriodKey
-  sectorFilter: string
-}) {
-  const raw = (kpi.results as KpiResultRow[]) ?? []
-  const goal = kpiGoal(kpi)
-  const color = kpiSeriesColor(kpi, sectorFilter)
-  const id = String(kpi.id ?? kpi.code_ref ?? kpi.code ?? kpi.name ?? "kpi")
-
-  const windowRef = new Date()
-  let inPeriod = filterResultsByPeriod(raw, periodKey, windowRef)
-  if (inPeriod.length === 0 && raw.length > 0) inPeriod = raw
-  /* Lista no backend vem do mais novo ao mais antigo; invertemos e pegamos até 6 períodos recentes em ordem temporal */
-  const chronological = inPeriod.length > 0 ? [...inPeriod].reverse() : []
-  const recent = chronological.slice(-6)
-  let data = recent.length > 0
-    ? recent.map((r) => ({
-        label: r.period_label,
-        actual: r.value,
-        meta: (r.target ?? goal) as number,
-      }))
-    : [{ label: "Atual", actual: kpiCurrent(kpi), meta: goal }]
-
-  /* Um único ponto não desenha área/linha visível no Recharts; duplicamos o ponto para formar segmento */
-  if (data.length === 1) {
-    const p = data[0]
-    data = [
-      { label: "\u00a0", actual: p.actual, meta: p.meta },
-      { label: p.label || "Atual", actual: p.actual, meta: p.meta },
-    ]
+/* ──────────────────────────────────────────────────────────────────────────
+   KANBAN
+────────────────────────────────────────────────────────────────────────── */
+function taskAreaBadgeClass(area: string): string {
+  const color = areaColor(area)
+  const map: Record<string, string> = {
+    "#2563eb": "cp-tb-accent",
+    "#16a34a": "cp-tb-cyan",
+    "#ca8a04": "cp-tb-warning",
+    "#db2777": "cp-tb-accent",
+    "#7c3aed": "cp-tb-accent",
+    "#0f766e": "cp-tb-cyan",
   }
-
-  return (
-    <ChartContainer
-      className={cn(
-        "w-full aspect-auto! font-sans text-xs text-muted-foreground",
-        "[&_.recharts-cartesian-axis-tick_text]:text-xs [&_.recharts-cartesian-axis-tick_text]:font-normal [&_.recharts-surface]:font-sans",
-      )}
-      style={{ height }}
-      config={{
-        actual: { label: "Realizado", color },
-        meta: { label: "Meta", color: "var(--muted-foreground)" },
-      }}
-    >
-      <AreaChart data={data} margin={{ left: 2, right: 8, top: 10, bottom: 8 }}>
-        <defs>
-          <linearGradient id={`g-${id}`} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor={color} stopOpacity={0.80} />
-            <stop offset="42%" stopColor={color} stopOpacity={0.70} />
-            <stop offset="72%" stopColor={color} stopOpacity={0.50} />
-            <stop offset="100%" stopColor={color} stopOpacity={0.35} />
-          </linearGradient>
-        </defs>
-        {/*
-          stroke="#ccc" alinha ao seletor do ChartContainer (shadcn) que aplica stroke-border;
-          hsl(var(--border)) no atributo SVG costuma não renderizar a grade visível.
-        */}
-        <CartesianGrid strokeDasharray="3 3" vertical horizontal stroke="#ccc" />
-        <XAxis
-          dataKey="label"
-          tickLine={false}
-          axisLine={{ stroke: "#ccc" }}
-          interval={0}
-          tick={{ fontSize: 12 }}
-          tickFormatter={formatChartAxisLabel}
-          tickMargin={8}
-          height={40}
-        />
-        {/* Eixo Y só com linha à esquerda (quadro do gráfico), sem escala — padrão visual tipo Shadcn */}
-        <YAxis
-          tickLine={false}
-          axisLine={{ stroke: "#ccc" }}
-          tick={false}
-          width={1}
-          domain={["auto", "auto"]}
-        />
-        <ChartTooltip
-          cursor={{ stroke: "var(--border)", strokeWidth: 1 }}
-          content={<ChartTooltipContent />}
-        />
-        <Area
-          type="monotone"
-          dataKey="actual"
-          name="Realizado"
-          stroke={color}
-          strokeWidth={2.5}
-          fill={`url(#g-${id})`}
-          dot={{ r: 3.5, fill: color, stroke: "var(--background)", strokeWidth: 2 }}
-          activeDot={{ r: 5 }}
-        />
-        <Line
-          type="monotone"
-          dataKey="meta"
-          name="Meta"
-          stroke="var(--muted-foreground)"
-          strokeWidth={1.75}
-          strokeDasharray="6 4"
-          dot={false}
-        />
-        <ChartLegend
-          verticalAlign="bottom"
-          align="center"
-          content={<ChartLegendContent className="pt-2 [&>div]:justify-center" />}
-        />
-      </AreaChart>
-    </ChartContainer>
-  )
+  return map[color] ?? "cp-tb-accent"
 }
 
-function useIsClient(): boolean {
-  return useSyncExternalStore(
-    () => () => {},
-    () => true,
-    () => false,
-  )
-}
+function PlanCard({ plan }: { plan: PlanData }) {
+  const status   = String(plan.status ?? "")
+  const area     = String(plan.area ?? "")
+  const dueDate  = String(plan.due_date ?? "")
+  const name     = String(plan.name ?? "Sem título")
+  const isDone   = status === "delivered"
+  const isLate   = !isDone && dueDate < new Date().toISOString().slice(0, 10)
+  const progress = typeof plan.completion_percentage === "number" ? plan.completion_percentage : null
+  const initials = String(plan.responsible_name ?? plan.owner ?? "?")
+    .split(" ")
+    .slice(0, 2)
+    .map((w) => w[0] ?? "")
+    .join("")
+    .toUpperCase()
 
-/* ── Donut: wrapper = tamanho do SVG; texto no centro geométrico (translate) ── */
-function HealthDonut({ above, attention, critical, empty }: { above: number; attention: number; critical: number; empty: number }) {
-  /** Recharts gera IDs de clipPath com contador global; SSR e cliente divergem e quebram a hidratação. */
-  const chartReady = useIsClient()
+  const fmtDue = dueDate
+    ? new Date(dueDate + "T12:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })
+    : ""
 
-  const total = Math.max(1, above + attention + critical + empty)
-  const pct = Math.round((above / total) * 100)
-  const data = [
-    { name: "ok", value: above },
-    { name: "warn", value: attention },
-    { name: "crit", value: critical },
-    { name: "nd", value: empty },
-  ]
-  const size = 90
   return (
-    <div
-      className="relative mx-auto shrink-0 overflow-visible"
-      style={{ width: size, height: size }}
-    >
-      {chartReady ? (
-        <ChartContainer
-          config={{
-            ok: { label: "Atingindo", color: "var(--chart-1)" },
-            warn: { label: "Atenção", color: "var(--chart-4)" },
-            crit: { label: "Crítico", color: "var(--chart-5)" },
-            nd: { label: "Sem dado", color: "var(--border)" },
-          }}
-          className={cn(
-            "aspect-auto! mx-auto h-[90px] w-[90px] font-sans",
-            "[&_.recharts-pie-label-text]:text-[10px]",
-          )}
-        >
-          <PieChart className="[&_.recharts-surface]:outline-none">
-            <ChartTooltip content={<ChartTooltipContent hideIndicator={false} />} />
-            <Pie
-              data={data}
-              cx="50%"
-              cy="50%"
-              innerRadius={30}
-              outerRadius={40}
-              dataKey="value"
-              nameKey="name"
-              paddingAngle={2}
-              cornerRadius={4}
-              stroke="var(--background)"
-              strokeWidth={2}
-              isAnimationActive={false}
-            >
-              {data.map((entry, i) => (
-                <Cell key={i} fill={`var(--color-${entry.name})`} />
-              ))}
-            </Pie>
-          </PieChart>
-        </ChartContainer>
-      ) : (
-        <div className="h-[90px] w-[90px]" aria-hidden />
-      )}
-      <div
-        className="pointer-events-none absolute left-1/2 top-1/2 flex w-[min(100%,3.5rem)] -translate-x-1/2 -translate-y-1/2 flex-col items-center justify-center gap-0 text-center"
-        aria-hidden
-      >
-        <span className="block w-full text-base font-bold leading-none tabular-nums tracking-tight text-foreground">{pct}%</span>
-        <span className="mt-1 block w-full text-[10px] font-medium uppercase leading-none tracking-wide text-muted-foreground">
-          meta
+    <div className="cp-task-card">
+      {area && (
+        <span className={cn("cp-task-badge", taskAreaBadgeClass(area))}>
+          {areaLabel(area)}
         </span>
+      )}
+      <div className={cn("cp-task-title", isDone && "cp-done-title")}>{name}</div>
+      {progress != null && status === "in_progress" && (
+        <div className="cp-task-progress">
+          <div className="cp-task-progress-label">Progresso · {Math.round(progress)}%</div>
+          <div className="cp-task-progress-bar">
+            <div className="cp-task-progress-fill" style={{ width: `${progress}%`, background: progress >= 80 ? "var(--rf-success)" : "var(--rf-warning)" }} />
+          </div>
+        </div>
+      )}
+      <div className="cp-task-meta">
+        {isDone ? (
+          <span className="cp-task-date" style={{ color: "var(--rf-success)" }}>
+            <IcCheck /> Entregue
+          </span>
+        ) : isLate ? (
+          <span className="cp-task-date" style={{ color: "var(--rf-danger)" }}>
+            <IcWarn /> Atrasado
+          </span>
+        ) : fmtDue ? (
+          <span className="cp-task-date"><IcCalendar /> {fmtDue}</span>
+        ) : <span />}
+        {initials && (
+          <div className="cp-task-avatar" title={String(plan.responsible_name ?? plan.owner ?? "")}>
+            {initials.slice(0, 2)}
+          </div>
+        )}
       </div>
     </div>
   )
 }
 
-/* ── Main page ── */
+function KanbanCol({
+  title,
+  count,
+  countClass,
+  plans,
+}: {
+  title: string
+  count: number
+  countClass: string
+  plans: PlanData[]
+}) {
+  return (
+    <div className="cp-kanban-col">
+      <div className="cp-kanban-col-hd">
+        <span className="cp-kanban-col-title">{title}</span>
+        <span className={cn("cp-kanban-count", countClass)}>{count}</span>
+      </div>
+      {plans.length === 0 && (
+        <div style={{ fontSize: 11, color: "var(--rf-text-muted)", padding: "8px 0" }}>Nenhum plano</div>
+      )}
+      {plans.map((p, i) => (
+        <PlanCard key={String(p.id ?? i)} plan={p} />
+      ))}
+    </div>
+  )
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   RITUAL ITEM
+────────────────────────────────────────────────────────────────────────── */
+function RitualItem({
+  meeting,
+  ritual,
+}: {
+  meeting: MeetingData
+  ritual?: RitualData
+}) {
+  const state    = String(meeting.state ?? "")
+  const raw      = String(meeting.occurred_at ?? "")
+  const t        = raw ? new Date(raw) : null
+  const time     = t && !Number.isNaN(t.getTime()) ? t.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) : "—"
+  const dur      = String(ritual?.duration_minutes ?? ritual?.frequency_minutes ?? "")
+  const durLabel = dur ? `${dur} min` : ""
+  const name     = String(ritual?.name ?? meeting.ritual_name ?? "Sessão")
+  const desc     = String(ritual?.description ?? meeting.notes ?? "")
+  const isDone   = state === "done"
+  const isActive = state === "in_progress"
+  const barClass = isDone ? "cp-rb-done" : isActive ? "cp-rb-active" : "cp-rb-next"
+
+  return (
+    <div className={cn("cp-ritual-item", isActive && "cp-ritual-active")}>
+      <div className="cp-ritual-time">
+        <div className={cn("cp-rt-time", isActive && "cp-rt-active")}>{time}</div>
+        {durLabel && <div className="cp-rt-dur">{durLabel}</div>}
+      </div>
+      <div className={cn("cp-ritual-bar", barClass)} />
+      <div className="cp-ritual-body">
+        <div className="cp-ritual-name">{name}</div>
+        {desc && <div className="cp-ritual-desc">{desc}</div>}
+        <div className="cp-ritual-footer">
+          <div className="cp-ritual-avatars">
+            {[1, 2, 3].map((n) => (
+              <div key={n} className="cp-r-avatar">{String.fromCharCode(64 + n)}</div>
+            ))}
+          </div>
+          {isDone && (
+            <span className="cp-badge-status cp-bs-done">
+              <IcCheck2 /> Realizado
+            </span>
+          )}
+          {isActive && (
+            <button className="cp-btn-enter">Entrar na Sala →</button>
+          )}
+          {!isDone && !isActive && (
+            <span style={{ fontSize: 11, color: "var(--rf-text-muted)" }}>
+              {raw ? `às ${time}` : "Agendado"}
+            </span>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   PAGE
+────────────────────────────────────────────────────────────────────────── */
+const PERIODS: { key: PeriodKey; label: string }[] = [
+  { key: "week",  label: "Esta semana" },
+  { key: "month", label: "Este mês" },
+  { key: "year",  label: "Este ano" },
+]
+
+const AREAS = [
+  { key: "all", label: "Todas as Áreas" },
+  ...COCKPIT_AREAS.filter((a) => a.slug !== "PLAY").map((a) => ({ key: a.slug, label: a.name })),
+]
+
 export default function CockpitPage() {
-  const [loading, setLoading] = useState(true)
-  const [kpis, setKpis] = useState<KpiData[]>([])
-  const [rituals, setRituals] = useState<KpiData[]>([])
-  const [plans, setPlans] = useState<KpiData[]>([])
-  const [meetings, setMeetings] = useState<KpiData[]>([])
-  const [activeArea, setActiveArea] = useState("all")
+  const [loading,     setLoading]   = useState(true)
+  const [kpis,        setKpis]      = useState<KpiData[]>([])
+  const [plans,       setPlans]     = useState<PlanData[]>([])
+  const [rituals,     setRituals]   = useState<RitualData[]>([])
+  const [meetings,    setMeetings]  = useState<MeetingData[]>([])
+  const [activeArea,  setActiveArea] = useState("all")
   const [activePeriod, setActivePeriod] = useState<PeriodKey>("month")
 
   const todayIso = new Date().toISOString().slice(0, 10)
   const todayLabel = new Date(`${todayIso}T12:00:00`).toLocaleDateString("pt-BR", {
-    weekday: "short",
-    day: "2-digit",
-    month: "2-digit",
+    weekday: "long", day: "2-digit", month: "short",
   })
 
   async function refreshAll() {
@@ -394,624 +354,448 @@ export default function CockpitPage() {
     try {
       const areaParams = activeArea !== "all" ? { area: activeArea } : {}
       const ref = new Date()
-      const cur = calendarPeriodDates(activePeriod, ref)
+      const cur  = calendarPeriodDates(activePeriod, ref)
       const next = nextCalendarPeriodDates(activePeriod, ref)
       const meetingParams = {
         ...areaParams,
-        occurred_from: `${minIsoDate(cur.from, next.from)}T00:00:00.000Z`,
-        occurred_to: `${maxIsoDate(cur.to, next.to)}T23:59:59.999Z`,
+        occurred_from: `${cur.from}T00:00:00.000Z`,
+        occurred_to:   `${next.to}T23:59:59.999Z`,
       }
       const [kR, rR, pR, mR] = await Promise.all([
-        api.get("/cockpit/kpis", { params: areaParams }),
-        api.get("/cockpit/rituals", { params: { status: "active", ...areaParams } }),
-        api.get("/cockpit/action-plans", { params: { today: todayIso, ...areaParams } }),
-        api.get("/cockpit/meetings", { params: meetingParams }),
+        api.get("/cockpit/kpis",          { params: areaParams }),
+        api.get("/cockpit/rituals",        { params: { status: "active", ...areaParams } }),
+        api.get("/cockpit/action-plans",   { params: { today: todayIso, ...areaParams } }),
+        api.get("/cockpit/meetings",       { params: meetingParams }),
       ])
-      const list: KpiData[] = kR.data ?? []
-      /* Painel precisa do histórico (`results`); só vem em GET /cockpit/kpis/:id */
-      const kpisMerged = await Promise.all(
-        list.map(async (k) => {
-          if (!kpiShowsInCockpit(k) || k.id == null) return k
-          try {
-            const { data } = await api.get<KpiData>(`/cockpit/kpis/${String(k.id)}`)
-            return data
-          } catch {
-            return k
-          }
-        }),
-      )
-      setKpis(kpisMerged)
+      setKpis(kR.data ?? [])
       setRituals(rR.data ?? [])
       setPlans(pR.data ?? [])
       setMeetings(mR.data ?? [])
-    } catch { /* silently fail */ }
+    } catch { /* silent */ }
     finally { setLoading(false) }
   }
 
   useEffect(() => { void refreshAll() }, [activeArea, activePeriod]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const periodDateBounds = useMemo(
-    () => calendarPeriodDates(activePeriod, new Date(`${todayIso}T12:00:00`)),
-    [activePeriod, todayIso],
+  /* ── derived ── */
+  const cockpitKpis = useMemo(() => kpis.filter(kpiShowsInCockpit), [kpis])
+
+  const todoPlans  = useMemo(() => plans.filter((p) => ["planned", "todo"].includes(String(p.status ?? ""))), [plans])
+  const doingPlans = useMemo(() => plans.filter((p) => ["in_progress", "blocked"].includes(String(p.status ?? ""))), [plans])
+  const donePlans  = useMemo(() => plans.filter((p) => ["delivered", "done"].includes(String(p.status ?? ""))), [plans])
+
+  const ritualById = useMemo(() => new Map(rituals.map((r) => [String(r.id ?? ""), r])), [rituals])
+
+  const todayMeetings = useMemo(
+    () => meetings
+      .filter((m) => String(m.occurred_at ?? "").startsWith(todayIso))
+      .sort((a, b) => String(a.occurred_at ?? "").localeCompare(String(b.occurred_at ?? ""))),
+    [meetings, todayIso],
   )
 
-  /* ── derived data ── */
-  const kpiCounts = useMemo(() => ({
-    above: kpis.filter((k) => k.status === "above").length,
-    attention: kpis.filter((k) => k.status === "attention").length,
-    critical: kpis.filter((k) => k.status === "critical").length,
-    empty: kpis.filter((k) => k.status === "empty").length,
-  }), [kpis])
-
-  const cockpitKpis = useMemo(() =>
-    kpis.filter(kpiShowsInCockpit), [kpis])
-
-  const planCounts = useMemo(() => ({
-    overdue: plans.filter((p) => {
-      const s = p.status as string
-      const d = p.due_date as string
-      return (
-        s !== "delivered" &&
-        s !== "archived" &&
-        d < todayIso &&
-        d >= periodDateBounds.from &&
-        d <= periodDateBounds.to
-      )
-    }).length,
-    blocked: plans.filter((p) => (p.status as string) === "blocked").length,
-  }), [plans, todayIso, periodDateBounds])
-
-  const ritualIdsInScope = useMemo(
-    () => new Set(rituals.map((r) => String(r.id ?? "")).filter(Boolean)),
-    [rituals],
-  )
-
-  const meetingsInScope = useMemo(
-    () => meetings.filter((m) => ritualIdsInScope.has(String(m.ritual_id ?? ""))),
-    [meetings, ritualIdsInScope],
-  )
-
-  const notTracked = useMemo(
-    () => meetingsInScope.filter((m) => (m.state as string) === "not_tracked").length,
-    [meetingsInScope],
-  )
-
-  /** Sessões (reuniões) no período atual e no próximo intervalo — alinhado a `activePeriod`, não à lista genérica de rituais. */
-  const periodMeetingsSidebar = useMemo(() => {
-    const ref = new Date(`${todayIso}T12:00:00`)
-    const cur = calendarPeriodDates(activePeriod, ref)
-    const next = nextCalendarPeriodDates(activePeriod, ref)
-    const ritualById = new Map(rituals.map((r) => [String(r.id ?? ""), r]))
-    const inCur = meetings.filter((m) => {
-      const d = String((m.occurred_at as string) ?? "").slice(0, 10)
-      return d && d >= cur.from && d <= cur.to
-    })
-    const inNext = meetings.filter((m) => {
-      const d = String((m.occurred_at as string) ?? "").slice(0, 10)
-      return d && d >= next.from && d <= next.to
-    })
-    const mapRow = (m: KpiData) => {
-      const r = ritualById.get(String(m.ritual_id ?? ""))
-      const name = (r?.name as string) ?? "Sessão"
-      const raw = (m.occurred_at as string) ?? ""
-      const d = raw.slice(0, 10)
-      const t = raw ? new Date(raw) : new Date(`${d}T12:00:00`)
-      const time = Number.isNaN(t.getTime()) ? "—" : t.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })
-      const dot = areaColor(String(r?.area ?? ""))
-      const st = String(m.state ?? "")
-      const badge =
-        st === "done" ? "Realizado" : st === "not_tracked" ? "Não rastreado" : st === "cancelled" ? "Cancelado" : "Registrado"
-      const badgeClass =
-        st === "done"
-          ? "border border-chart-1/30 bg-chart-1/10 text-chart-1"
-          : st === "not_tracked"
-            ? "border border-border bg-muted text-muted-foreground"
-            : "border border-chart-2/30 bg-chart-2/10 text-chart-2"
-      const wd = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"]
-      const day = d && !Number.isNaN(new Date(d + "T12:00:00").getTime()) ? wd[new Date(d + "T12:00:00").getDay()] ?? "" : ""
-      const date = d
-        ? new Date(d + "T12:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })
-        : "—"
-      const rowKey = String(m.id ?? `${d}-${String(m.ritual_id ?? "")}`)
-      return { time, name, dot, badge, badgeClass, day, date, rowKey }
-    }
-    return {
-      curRows: inCur.slice(0, 8).map(mapRow),
-      nextRows: inNext.slice(0, 8).map(mapRow),
-    }
-  }, [meetings, rituals, activePeriod, todayIso])
-
-  /** Lançamentos (resultados) de KPI com `period_start` dentro do intervalo do filtro — mesmos dados do detalhe do KPI. */
-  const kpiLaunchesInPeriod = useMemo(() => {
-    const ref = new Date(`${todayIso}T12:00:00`)
-    const { from, to } = calendarPeriodDates(activePeriod, ref)
-    type Row = {
-      key: string
-      kpiId: string
-      kpiName: string
-      periodLabel: string
-      valueStr: string
-      dot: string
-      sortKey: string
-    }
-    const out: Row[] = []
-    for (const k of cockpitKpis) {
-      const unit = (k.unit as string) ?? ""
-      const results = (k.results as KpiResultRow[]) ?? []
-      const kid = String(k.id ?? "")
-      if (!kid) continue
-      results.forEach((r, ri) => {
-        const ps = r.period_start
-        const d = typeof ps === "string" ? ps.slice(0, 10) : null
-        if (!d || d < from || d > to) return
-        const resultId = r.id != null && String(r.id).length > 0 ? String(r.id) : `idx-${ri}`
-        out.push({
-          key: `${kid}-result-${resultId}`,
-          kpiId: kid,
-          kpiName: String(k.name ?? "KPI"),
-          periodLabel: String(r.period_label ?? "").trim() || d,
-          valueStr: fmtVal(Number(r.value), unit),
-          dot: areaColor(String(k.area ?? "")),
-          sortKey: d,
-        })
-      })
-    }
-    out.sort((a, b) => (a.sortKey < b.sortKey ? 1 : a.sortKey > b.sortKey ? -1 : 0))
-    return out.slice(0, 8)
-  }, [cockpitKpis, activePeriod, todayIso])
-
-  /* Alerts from real counts (escopo = área + período onde aplicável) */
-  const alerts = useMemo(
-    () => [
-      {
-        id: "planos-atrasados",
-        icon: ClipboardList,
-        iconBg: "bg-chart-5/10",
-        iconColor: "text-chart-5",
-        name: "Planos atrasados",
-        meta: `${planCounts.overdue} com prazo no período e ainda em aberto`,
-        count: planCounts.overdue,
-        countColor: "text-chart-5",
-        href: "/cockpit/planos-de-acao?due=overdue",
-      },
-      {
-        id: "kpis-criticos",
-        icon: TrendingDown,
-        iconBg: "bg-chart-4/10",
-        iconColor: "text-chart-4",
-        name: "KPIs críticos",
-        meta: "Abaixo do limite de desvio configurado por KPI",
-        count: kpiCounts.critical,
-        countColor: "text-chart-4",
-        href: "/cockpit/kpis?status=critical",
-      },
-      {
-        id: "rituais-nao-rastreados",
-        icon: AlertTriangle,
-        iconBg: "bg-chart-5/10",
-        iconColor: "text-chart-5",
-        name: "Rituais não rastreados",
-        meta: `${notTracked} sessões no período`,
-        count: notTracked,
-        countColor: "text-chart-5",
-        href: "/cockpit/rituais",
-      },
-    ],
-    [planCounts.overdue, kpiCounts.critical, notTracked],
-  )
-
-  const totalAlerts = planCounts.overdue + kpiCounts.critical + notTracked
-
-  /* KPI chart rows — group cockpit KPIs into layout rows */
-  const row1 = cockpitKpis.slice(0, 2)
-  const row2 = cockpitKpis.slice(2, 5)
-  const row3 = cockpitKpis.slice(5, 7)
-  const row4 = cockpitKpis.slice(7, 9)
-
-  const areas = useMemo(
-    () => [
-      { key: "all", label: "Todos os setores" as const, dot: undefined as string | undefined },
-      ...COCKPIT_AREAS.filter((a) => a.slug !== "PLAY").map((a) => ({ key: a.slug, label: a.name, dot: a.color })),
-    ],
-    [],
-  )
-  const periods: { key: PeriodKey; label: string }[] = [
-    { key: "week", label: "Semana" },
-    { key: "month", label: "Mês" },
-    { key: "year", label: "Ano" },
-  ]
-
-  const periodSidebarTitles: Record<PeriodKey, [string, string]> = {
-    week: ["Esta semana", "Próximos 7 dias"],
-    month: ["Este mês", "Próximo mês"],
-    year: ["Este ano", "Próximo ano"],
-  }
-
-  function periodOverPeriodDelta(kpi: KpiData): number | null {
-    const raw = (kpi.results as KpiResultRow[]) ?? []
-    const filtered = filterResultsByPeriod(raw, activePeriod, new Date())
-    const chrono = filtered.length > 0 ? [...filtered].reverse() : []
-    const pts = chrono.slice(-6)
-    if (pts.length < 2) return null
-    const a = Number(pts[pts.length - 2]?.value ?? 0)
-    const b = Number(pts[pts.length - 1]?.value ?? 0)
-    if (!Number.isFinite(a) || !Number.isFinite(b)) return null
-    if (Math.abs(a) < 1e-9) return null
-    return ((b - a) / Math.abs(a)) * 100
-  }
-
-  function renderKpiCard(kpi: KpiData, h = 100) {
-    const current = kpiCurrent(kpi)
-    const goal = kpiGoal(kpi)
-    const unit = (kpi.unit as string) ?? ""
-    const dev = devPct(current, goal)
-    const ok = dev >= 0
-    const popDelta = periodOverPeriodDelta(kpi)
-    return (
-      <Link
-        href={`/cockpit/kpis/${String(kpi.id)}`}
-        className="block cursor-pointer rounded-xl outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring"
-      >
-        <Card className="h-full border-border bg-card shadow-sm transition-shadow hover:shadow-md">
-          <CardContent className="p-6">
-            <div className="mb-3 flex items-start justify-between gap-2">
-              <div className="min-w-0">
-                <div className="text-sm font-medium leading-snug text-foreground">{kpi.name as string}</div>
-                <div className="mt-0.5 text-xs text-muted-foreground">
-                  {areaLabel(String(kpi.area ?? ""))} · {kpiCodeLabel(kpi)}
-                </div>
-              </div>
-              <div className="shrink-0 text-right">
-                <div className="text-sm font-bold tabular-nums tracking-tight text-foreground">{fmtVal(current, unit)}</div>
-                <div className={cn("mt-0.5 text-xs font-bold tabular-nums", ok ? "text-chart-1" : "text-chart-5")}>
-                  {ok ? "↑" : "↓"} {dev >= 0 ? "+" : ""}{dev.toFixed(1)}% vs meta
-                </div>
-                {popDelta != null && (
-                  <div className="mt-0.5 text-xs tabular-nums text-muted-foreground">
-                    {popDelta >= 0 ? "+" : ""}{popDelta.toFixed(1)}% vs período anterior
-                  </div>
-                )}
-              </div>
-            </div>
-            <KpiChart kpi={kpi} height={h} periodKey={activePeriod} sectorFilter={activeArea} />
-          </CardContent>
-        </Card>
-      </Link>
-    )
-  }
-
-  function exportReportPdf() {
-    const params = new URLSearchParams()
-    if (activeArea !== "all") params.set("area", activeArea)
-    params.set("period", activePeriod)
-    window.open(`/api-proxy/cockpit/report/estrategico.pdf?${params.toString()}`, "_blank", "noopener,noreferrer")
-  }
-
+  /* ──────────────────────────────────────────────────────────────────────
+     RENDER
+  ────────────────────────────────────────────────────────────────────── */
   return (
     <>
-      <Header
-        title="Cockpit Estratégico"
-        description={loading ? "Carregando…" : "Visão consolidada de performance"}
-        actions={
-          <div className="flex gap-2 print:hidden">
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-2 bg-transparent"
-              disabled={loading}
-              aria-busy={loading}
-              onClick={() => void refreshAll()}
-            >
-              <RefreshCw className={cn("h-3.5 w-3.5", loading && "animate-spin")} /> Atualizar
-            </Button>
-            <Button variant="outline" size="sm" className="gap-2 bg-transparent" disabled={loading} onClick={exportReportPdf}>
-              <FileDown className="h-3.5 w-3.5" /> Exportar PDF
-            </Button>
-          </div>
+      {/* ── Inline styles ────────────────────────────────────────────────── */}
+      <style>{`
+        @keyframes cp-spin { to { transform: rotate(360deg); } }
+
+        /* ── Page shell ── */
+        .cp-page {
+          display: flex; flex-direction: column;
+          height: 100%; overflow-y: auto; overflow-x: hidden;
+          background: var(--rf-bg-base);
+          font-family: var(--rf-font-body, 'DM Sans', sans-serif);
+          color: var(--rf-text-primary);
         }
-      />
-      <main className={COCKPIT_MAIN_CLASS} aria-busy={loading}>
 
-        {/* Filtros: setor (cor dos gráficos = bolinha do setor selecionado) + período */}
-        <div
-          className="-mx-1 flex max-w-full flex-col gap-2 print:hidden sm:mx-0"
-          role="toolbar"
-          aria-label="Filtros do cockpit"
-        >
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-2">
-            <span className="shrink-0 text-xs font-medium text-muted-foreground" id="cockpit-filter-sector-label">
-              Setor
-            </span>
-            <div
-              className="flex min-w-0 flex-1 flex-nowrap items-center gap-2 overflow-x-auto pb-0.5 sm:flex-wrap sm:overflow-visible"
-              role="group"
-              aria-labelledby="cockpit-filter-sector-label"
+        /* ── Topbar ── */
+        .cp-topbar {
+          display: flex; align-items: flex-start;
+          justify-content: space-between; gap: 16px;
+          padding: 18px 20px 14px;
+          background: var(--rf-bg-surface);
+          border-bottom: 1px solid var(--rf-border-subtle);
+          flex-wrap: wrap;
+        }
+        .cp-topbar-left  { display: flex; align-items: flex-start; gap: 10px; min-width: 0; }
+        .cp-page-title   {
+          font-family: var(--rf-font-display, 'Syne', sans-serif);
+          font-size: 20px; font-weight: 800;
+          color: var(--rf-text-primary); letter-spacing: -0.3px;
+          line-height: 1.2;
+        }
+        .cp-page-sub     { font-size: 12px; color: var(--rf-text-secondary); margin-top: 3px; }
+        .cp-topbar-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; flex-shrink: 0; }
+
+        /* Buttons */
+        .cp-btn { padding: 7px 14px; border-radius: 12px; font-family: var(--rf-font-body, sans-serif); font-size: 12px; font-weight: 600; cursor: pointer; transition: all var(--rf-transition); border: none; white-space: nowrap; display: inline-flex; align-items: center; gap: 6px; }
+        .cp-btn-ghost { background: var(--rf-bg-elevated); color: var(--rf-text-secondary); border: 1px solid var(--rf-border-default); }
+        .cp-btn-ghost:hover { border-color: var(--rf-border-strong); color: var(--rf-text-primary); }
+        .cp-btn-accent { background: var(--rf-accent); color: #fff; box-shadow: 0 2px 8px rgba(123,97,255,0.35); }
+        .cp-btn-accent:hover { background: var(--rf-accent-hover); box-shadow: 0 4px 14px rgba(123,97,255,0.45); }
+        .cp-btn-accent:disabled { opacity: 0.6; cursor: not-allowed; }
+
+        /* ── Filter row ── */
+        .cp-filter-row {
+          display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none;
+          padding: 12px 20px; background: var(--rf-bg-surface);
+          border-bottom: 1px solid var(--rf-border-subtle);
+          flex-wrap: wrap;
+        }
+        .cp-filter-row::-webkit-scrollbar { display: none; }
+        .cp-chip {
+          flex-shrink: 0; padding: 6px 14px; border-radius: 9999px;
+          border: 1px solid var(--rf-border-default);
+          background: var(--rf-bg-elevated);
+          font-size: 12px; font-weight: 600;
+          color: var(--rf-text-secondary);
+          cursor: pointer; transition: all var(--rf-transition); white-space: nowrap;
+        }
+        .cp-chip:hover { border-color: var(--rf-border-strong); color: var(--rf-text-primary); }
+        .cp-chip-active { background: var(--rf-accent-soft); color: var(--rf-accent); border-color: var(--rf-accent-border); }
+
+        /* ── Content ── */
+        .cp-content { padding: 20px; display: flex; flex-direction: column; gap: 24px; flex: 1; }
+
+        /* ── Section header ── */
+        .cp-sec-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+        .cp-sec-title { font-family: var(--rf-font-display, 'Syne', sans-serif); font-size: 14px; font-weight: 700; color: var(--rf-text-primary); }
+        .cp-sec-link { font-size: 12px; color: var(--rf-accent); font-weight: 600; cursor: pointer; text-decoration: none; }
+        .cp-sec-meta { font-size: 11px; color: var(--rf-text-muted); font-family: monospace; }
+
+        /* ── Divider ── */
+        .cp-divider { height: 1px; background: var(--rf-border-subtle); }
+
+        /* ── KPI Cards ── */
+        .cp-kpi-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        @media (max-width: 480px) { .cp-kpi-grid { grid-template-columns: 1fr; } }
+
+        .cp-kpi-card {
+          background: var(--rf-bg-surface);
+          border: 1px solid var(--rf-border-default);
+          border-radius: 16px; padding: 16px;
+          transition: all var(--rf-transition); cursor: pointer;
+          display: block; text-decoration: none; color: inherit;
+        }
+        .cp-kpi-card:hover { box-shadow: var(--rf-shadow-md); border-color: var(--rf-border-strong); }
+        .cp-kpi-highlight {
+          border-color: var(--rf-accent-border);
+          box-shadow: 0 0 0 1px var(--rf-accent-border), 0 4px 20px rgba(123,97,255,0.15);
+        }
+        .cp-kpi-label { font-size: 10px; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase; color: var(--rf-text-muted); margin-bottom: 10px; }
+        .cp-kpi-value {
+          font-family: var(--rf-font-display, 'Syne', sans-serif);
+          font-size: 24px; font-weight: 800; color: var(--rf-text-primary);
+          letter-spacing: -0.5px; line-height: 1; margin-bottom: 8px;
+        }
+        .cp-kpi-highlight .cp-kpi-value { color: var(--rf-accent); }
+        .cp-kpi-delta { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 9999px; }
+        .cp-delta-up   { background: rgba(34,197,94,0.10); color: #22c55e; }
+        .cp-delta-down { background: rgba(239,68,68,0.10); color: #ef4444; }
+        .cp-kpi-sub { font-size: 11px; color: var(--rf-text-muted); margin-top: 6px; }
+
+        .cp-progress-bar { height: 3px; border-radius: 9999px; background: var(--rf-border-subtle); overflow: hidden; margin-top: 10px; }
+        .cp-progress-fill { height: 100%; border-radius: 9999px; background: linear-gradient(90deg, var(--rf-accent), #00d4ff); transition: width 0.6s ease; }
+        .cp-kpi-highlight .cp-progress-fill { background: var(--rf-accent); }
+
+        /* Skeleton */
+        .cp-kpi-skeleton { background: var(--rf-bg-surface); border: 1px solid var(--rf-border-subtle); border-radius: 16px; padding: 16px; }
+        .cp-skeleton-bar { border-radius: 4px; background: var(--rf-border-subtle); animation: cp-shimmer 1.4s ease-in-out infinite; }
+        @keyframes cp-shimmer { 0%,100%{opacity:1}50%{opacity:0.5} }
+
+        /* ── Kanban ── */
+        .cp-kanban-wrap { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none; }
+        .cp-kanban-wrap::-webkit-scrollbar { display: none; }
+        .cp-kanban-col {
+          flex-shrink: 0; width: 210px;
+          background: var(--rf-bg-surface); border: 1px solid var(--rf-border-subtle);
+          border-radius: 16px; padding: 14px;
+        }
+        .cp-kanban-col-hd { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+        .cp-kanban-col-title { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--rf-text-muted); }
+        .cp-kanban-count { font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 9999px; }
+        .cp-cnt-todo   { background: var(--rf-bg-overlay); color: var(--rf-text-secondary); }
+        .cp-cnt-doing  { background: rgba(245,158,11,0.10); color: #f59e0b; }
+        .cp-cnt-done   { background: rgba(34,197,94,0.10); color: #22c55e; }
+
+        .cp-task-card {
+          background: var(--rf-bg-elevated); border: 1px solid var(--rf-border-subtle);
+          border-radius: 12px; padding: 12px; margin-bottom: 8px;
+          cursor: pointer; transition: all var(--rf-transition);
+        }
+        .cp-task-card:hover { border-color: var(--rf-accent-border); }
+        .cp-task-card:last-child { margin-bottom: 0; }
+        .cp-task-badge { display: inline-flex; align-items: center; font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 9999px; margin-bottom: 6px; }
+        .cp-tb-accent  { background: var(--rf-accent-soft); color: var(--rf-accent); }
+        .cp-tb-cyan    { background: rgba(0,212,255,0.10); color: #00d4ff; }
+        .cp-tb-warning { background: rgba(245,158,11,0.10); color: #f59e0b; }
+        .cp-task-title { font-size: 12px; font-weight: 500; color: var(--rf-text-primary); line-height: 1.4; margin-bottom: 8px; }
+        .cp-done-title { text-decoration: line-through; color: var(--rf-text-muted); }
+        .cp-task-meta  { display: flex; align-items: center; justify-content: space-between; }
+        .cp-task-date  { font-size: 10px; color: var(--rf-text-muted); display: flex; align-items: center; gap: 3px; }
+        .cp-task-avatar {
+          width: 20px; height: 20px; border-radius: 50%;
+          background: linear-gradient(135deg, var(--rf-accent), #00d4ff);
+          display: grid; place-items: center;
+          font-size: 7px; font-weight: 700; color: #fff;
+          font-family: var(--rf-font-display, 'Syne', sans-serif);
+        }
+        .cp-task-progress { margin-top: 8px; }
+        .cp-task-progress-label { font-size: 10px; color: var(--rf-text-muted); margin-bottom: 4px; }
+        .cp-task-progress-bar { height: 2px; border-radius: 9999px; background: var(--rf-border-subtle); overflow: hidden; }
+        .cp-task-progress-fill { height: 100%; border-radius: 9999px; }
+
+        /* ── Rituais ── */
+        .cp-ritual-list { display: flex; flex-direction: column; gap: 10px; }
+        .cp-ritual-item {
+          background: var(--rf-bg-surface); border: 1px solid var(--rf-border-subtle);
+          border-radius: 16px; padding: 14px 16px;
+          display: flex; gap: 14px; align-items: flex-start;
+          transition: all var(--rf-transition);
+        }
+        .cp-ritual-active { border-color: var(--rf-accent-border); background: var(--rf-accent-soft); }
+        .cp-ritual-time { text-align: right; flex-shrink: 0; min-width: 46px; }
+        .cp-rt-time { font-family: monospace; font-size: 13px; font-weight: 500; color: var(--rf-text-primary); }
+        .cp-rt-active { color: var(--rf-accent); }
+        .cp-rt-dur { font-size: 10px; color: var(--rf-text-muted); margin-top: 2px; }
+        .cp-ritual-bar { width: 2px; border-radius: 2px; align-self: stretch; flex-shrink: 0; }
+        .cp-rb-done   { background: #22c55e; }
+        .cp-rb-active { background: var(--rf-accent); }
+        .cp-rb-next   { background: var(--rf-border-strong); }
+        .cp-ritual-body { flex: 1; min-width: 0; }
+        .cp-ritual-name { font-size: 13px; font-weight: 600; color: var(--rf-text-primary); margin-bottom: 3px; }
+        .cp-ritual-desc { font-size: 11.5px; color: var(--rf-text-secondary); margin-bottom: 8px; }
+        .cp-ritual-footer { display: flex; align-items: center; justify-content: space-between; }
+        .cp-ritual-avatars { display: flex; }
+        .cp-r-avatar {
+          width: 20px; height: 20px; border-radius: 50%;
+          border: 2px solid var(--rf-bg-surface);
+          background: linear-gradient(135deg, var(--rf-accent), #00d4ff);
+          display: grid; place-items: center;
+          font-size: 7px; font-weight: 700; color: #fff;
+          margin-right: -6px;
+        }
+        .cp-badge-status { display: inline-flex; align-items: center; gap: 4px; font-size: 10px; font-weight: 600; padding: 3px 8px; border-radius: 9999px; }
+        .cp-bs-done { background: rgba(34,197,94,0.10); color: #22c55e; }
+        .cp-btn-enter { padding: 5px 12px; background: var(--rf-accent); color: #fff; border: none; border-radius: 10px; font-family: var(--rf-font-body, sans-serif); font-size: 11px; font-weight: 600; cursor: pointer; transition: all var(--rf-transition); }
+        .cp-btn-enter:hover { background: var(--rf-accent-hover); }
+
+        /* ── Empty state ── */
+        .cp-empty {
+          background: var(--rf-bg-surface);
+          border: 1px dashed var(--rf-border-strong);
+          border-radius: 16px; padding: 48px 28px; text-align: center;
+        }
+        .cp-empty-icon {
+          width: 52px; height: 52px; border-radius: 14px;
+          background: var(--rf-bg-elevated); border: 1px solid var(--rf-border-default);
+          display: grid; place-items: center; margin: 0 auto 16px;
+          color: var(--rf-text-muted);
+        }
+        .cp-empty-title { font-family: var(--rf-font-display, 'Syne', sans-serif); font-size: 15px; font-weight: 700; color: var(--rf-text-primary); margin-bottom: 6px; }
+        .cp-empty-desc  { font-size: 13px; color: var(--rf-text-secondary); line-height: 1.5; margin-bottom: 22px; }
+        .cp-empty-btn {
+          padding: 10px 24px; background: var(--rf-accent); color: #fff;
+          border: none; border-radius: 10px;
+          font-family: var(--rf-font-body, sans-serif); font-size: 13px; font-weight: 600;
+          cursor: pointer; transition: all var(--rf-transition);
+          box-shadow: 0 2px 10px rgba(123,97,255,0.35);
+        }
+        .cp-empty-btn:hover { background: var(--rf-accent-hover); box-shadow: 0 4px 16px rgba(123,97,255,0.45); transform: translateY(-1px); }
+
+        /* ── KPI ghost (empty data) ── */
+        .cp-kpi-ghost { opacity: 0.45; cursor: default; pointer-events: none; }
+        .cp-kpi-ghost .cp-kpi-value { color: var(--rf-text-muted); font-size: 20px; }
+        .cp-kpi-ghost-wide { grid-column: 1 / -1; }
+      `}</style>
+
+      <div className="cp-page">
+
+        {/* ── Topbar ─────────────────────────────────────────────────────── */}
+        <div className="cp-topbar">
+          <div className="cp-topbar-left">
+            <SidebarTrigger style={{ marginTop: 2 }} />
+            <div>
+              <div className="cp-page-title">Cockpit Estratégico</div>
+              <div className="cp-page-sub">Acompanhamento de metas e execução tática.</div>
+            </div>
+          </div>
+          <div className="cp-topbar-actions">
+            <button
+              className="cp-btn cp-btn-ghost"
+              disabled={loading}
+              onClick={() => {
+                const params = new URLSearchParams({ period: activePeriod })
+                if (activeArea !== "all") params.set("area", activeArea)
+                window.open(`/api-proxy/cockpit/report/estrategico.pdf?${params}`, "_blank", "noopener,noreferrer")
+              }}
             >
-              {areas.map((a) => (
-                <button
-                  key={a.key}
-                  type="button"
-                  aria-pressed={activeArea === a.key}
-                  onClick={() => setActiveArea(a.key)}
-                  className={cn(
-                    "inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-medium transition-colors",
-                    activeArea === a.key
-                      ? "border-primary bg-primary text-primary-foreground"
-                      : "border-border bg-card text-muted-foreground hover:border-primary hover:text-primary",
-                  )}
-                >
-                  {a.dot && <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: a.dot }} aria-hidden />}
-                  {a.label}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-2">
-            <span className="shrink-0 text-xs font-medium text-muted-foreground" id="cockpit-filter-period-label">
-              Período
-            </span>
-            <div className="flex min-w-0 flex-wrap items-center gap-1.5" role="group" aria-labelledby="cockpit-filter-period-label">
-              {periods.map((p) => (
-                <button
-                  key={p.key}
-                  type="button"
-                  aria-pressed={activePeriod === p.key}
-                  onClick={() => setActivePeriod(p.key)}
-                  className={cn(
-                    "inline-flex shrink-0 items-center rounded-full border px-3 py-1.5 text-sm font-medium transition-colors",
-                    activePeriod === p.key
-                      ? "border-primary bg-primary text-primary-foreground"
-                      : "border-border bg-card text-muted-foreground hover:border-primary hover:text-primary",
-                  )}
-                >
-                  {p.label}
-                </button>
-              ))}
-            </div>
+              <IcDownload /> PDF
+            </button>
+            <button className="cp-btn cp-btn-accent" disabled={loading} onClick={() => void refreshAll()}>
+              <IcRefresh spin={loading} /> Atualizar
+            </button>
           </div>
         </div>
 
-        <div className="mb-4 hidden print:block">
-          <p className="text-sm text-muted-foreground">
-            Relatório · {activeArea === "all" ? "Todos os setores" : areaLabel(activeArea)} · {periods.find((p) => p.key === activePeriod)?.label ?? ""} · {new Date().toLocaleDateString("pt-BR")}
-          </p>
-          <ul className="mt-2 list-inside list-disc text-sm text-foreground">
-            <li>
-              Saúde dos KPIs: {kpiCounts.above} atingindo, {kpiCounts.attention} atenção, {kpiCounts.critical} críticos, {kpiCounts.empty} sem dado (total {kpis.length} no escopo).
-            </li>
-            <li>
-              Alertas: {planCounts.overdue} planos atrasados (prazo no período), {kpiCounts.critical} KPIs críticos, {notTracked} sessões não rastreadas no período.
-            </li>
-          </ul>
+        {/* ── Filters ─────────────────────────────────────────────────────── */}
+        <div className="cp-filter-row">
+          {AREAS.map((a) => (
+            <button
+              key={a.key}
+              className={cn("cp-chip", activeArea === a.key && "cp-chip-active")}
+              onClick={() => setActiveArea(a.key)}
+            >
+              {a.label}
+            </button>
+          ))}
+          <div style={{ width: 1, background: "var(--rf-border-subtle)", margin: "0 4px", alignSelf: "stretch" }} />
+          {PERIODS.map((p) => (
+            <button
+              key={p.key}
+              className={cn("cp-chip", activePeriod === p.key && "cp-chip-active")}
+              onClick={() => setActivePeriod(p.key)}
+            >
+              {p.label}
+            </button>
+          ))}
         </div>
 
-        {/* Main grid */}
-        <div id="cockpit-strategic-report" className="grid min-w-0 items-start gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(220px,232px)]">
+        {/* ── Content ─────────────────────────────────────────────────────── */}
+        <div className="cp-content">
 
-          {/* LEFT — KPI Charts */}
-          <div className="min-w-0 space-y-4">
-            {cockpitKpis.length === 0 && loading && (
-              <div className="grid gap-4 lg:grid-cols-2" aria-hidden>
-                {[0, 1].map((s) => (
-                  <Card key={s} className="border-border bg-card shadow-sm">
-                    <CardContent className="space-y-4 p-6">
-                      <div className="flex justify-between gap-4">
-                        <div className="min-w-0 space-y-2">
-                          <div className="h-4 w-40 max-w-full animate-pulse rounded-md bg-muted" />
-                          <div className="h-3 w-28 max-w-full animate-pulse rounded-md bg-muted/80" />
-                        </div>
-                        <div className="h-8 w-14 shrink-0 animate-pulse rounded-md bg-muted" />
-                      </div>
-                      <div className="h-[120px] animate-pulse rounded-lg bg-muted/60" />
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            )}
-            {row1.length > 0 && (
-              <div className="grid gap-4 lg:grid-cols-[2fr_1fr]">
-                {row1.map((k) => (
-                  <Fragment key={kpiReactKey(k)}>
-                    {renderKpiCard(k, 130)}
-                  </Fragment>
-                ))}
-              </div>
-            )}
-            {row2.length > 0 && (
-              <div className="grid gap-4 lg:grid-cols-3">
-                {row2.map((k) => (
-                  <Fragment key={kpiReactKey(k)}>
-                    {renderKpiCard(k)}
-                  </Fragment>
-                ))}
-              </div>
-            )}
-            {row3.length > 0 && (
-              <div className="grid gap-4 lg:grid-cols-2">
-                {row3.map((k) => (
-                  <Fragment key={kpiReactKey(k)}>
-                    {renderKpiCard(k)}
-                  </Fragment>
-                ))}
-              </div>
-            )}
-            {row4.length > 0 && (
-              <div className="grid gap-4 lg:grid-cols-2">
-                {row4.map((k) => (
-                  <Fragment key={kpiReactKey(k)}>
-                    {renderKpiCard(k)}
-                  </Fragment>
-                ))}
-              </div>
-            )}
-            {cockpitKpis.length === 0 && !loading && (
-              <Card className="border-border bg-card"><CardContent className="p-6 text-center text-sm text-muted-foreground">Nenhum KPI marcado como visível no cockpit.</CardContent></Card>
-            )}
-          </div>
+          {/* ── KPI Indicadores ── */}
+          <section>
+            <div className="cp-sec-header">
+              <span className="cp-sec-title">Indicadores</span>
+              <Link href="/cockpit/kpis" className="cp-sec-link">Ver todos →</Link>
+            </div>
 
-          {/* RIGHT — Sidebar */}
-          <div className="min-w-0 space-y-4 xl:max-w-none">
-
-            {/* Saúde */}
-            <Card className="gap-0 overflow-visible border-border bg-card py-0 shadow-sm">
-              <CardHeader className="items-center border-b border-border px-4 py-3">
-                <CardTitle className="text-sm font-semibold leading-none text-foreground">Saúde geral</CardTitle>
-                <CardAction>
-                  <Badge
-                    variant="secondary"
-                    className="border border-chart-1/30 bg-chart-1/10 text-xs font-semibold tabular-nums text-chart-1 shadow-none hover:bg-chart-1/15"
-                  >
-                    {Math.round((kpiCounts.above / Math.max(1, kpis.length)) * 100)}% ok
-                  </Badge>
-                </CardAction>
-              </CardHeader>
-              <CardContent className="flex items-center gap-3 px-4 py-3">
-                <div className="flex w-[80px] shrink-0 justify-center">
-                  <HealthDonut above={kpiCounts.above} attention={kpiCounts.attention} critical={kpiCounts.critical} empty={kpiCounts.empty} />
-                </div>
-                <div className="min-w-0 flex-1 space-y-1">
-                  {[
-                    { label: "Atingindo", value: kpiCounts.above, dotClass: "bg-chart-1" },
-                    { label: "Atenção", value: kpiCounts.attention, dotClass: "bg-chart-4" },
-                    { label: "Crítico", value: kpiCounts.critical, dotClass: "bg-chart-5" },
-                    { label: "Sem dado", value: kpiCounts.empty, dotClass: "bg-border" },
-                  ].map((r) => (
-                    <div key={r.label} className="flex items-center justify-between gap-2">
-                      <div className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
-                        <span className={cn("h-2 w-2 shrink-0 rounded-full", r.dotClass)} />
-                        <span className="truncate">{r.label}</span>
-                      </div>
-                      <span className="shrink-0 text-xs font-semibold tabular-nums text-foreground">{r.value}</span>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Período atual (reuniões no intervalo do filtro) */}
-            <Card className="gap-0 border-border bg-card py-0 shadow-sm">
-              <CardHeader className="items-center border-b border-border px-4 py-3">
-                <CardTitle className="text-sm font-semibold leading-none text-foreground">{periodSidebarTitles[activePeriod][0]}</CardTitle>
-                <CardAction>
-                  <Badge
-                    variant="secondary"
-                    className="border border-border bg-muted/60 text-xs font-semibold tabular-nums text-foreground shadow-none hover:bg-muted/80"
-                  >
-                    {todayLabel}
-                  </Badge>
-                </CardAction>
-              </CardHeader>
-              <div className="divide-y divide-border">
-                {periodMeetingsSidebar.curRows.length === 0 &&
-                  kpiLaunchesInPeriod.length === 0 &&
-                  (loading ? (
-                    <div className="px-4 py-3 text-xs text-muted-foreground">Carregando…</div>
-                  ) : (
-                    <div className="px-4 py-3 text-xs text-muted-foreground">
-                      Nenhuma sessão nem lançamento de KPI neste intervalo.
-                    </div>
-                  ))}
-                {periodMeetingsSidebar.curRows.map((r) => (
-                  <div key={r.rowKey} className="flex items-center gap-2.5 px-4 py-2.5 transition-colors hover:bg-muted/40">
-                    <span className="min-w-[52px] shrink-0 tabular-nums text-xs text-muted-foreground">
-                      {activePeriod === "week" ? r.time : `${r.day} ${r.date}`}
-                    </span>
-                    <span className="h-[7px] w-[7px] shrink-0 rounded-full" style={{ background: r.dot }} aria-hidden />
-                    <span className="min-w-0 flex-1 text-xs font-medium text-foreground">{r.name}</span>
-                    <span className={cn("shrink-0 rounded-lg border px-1.5 py-0.5 text-xs font-medium", r.badgeClass)}>{r.badge}</span>
-                  </div>
-                ))}
-                {kpiLaunchesInPeriod.length > 0 && (
-                  <>
-                    <div className="bg-muted/25 px-4 py-2">
-                      <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Lançamentos de KPI</p>
-                      <p className="mt-0.5 text-[10px] text-muted-foreground/90">Registros com período neste intervalo (mesmo do detalhe do indicador).</p>
-                    </div>
-                    {kpiLaunchesInPeriod.map((row) => (
-                      <Link
-                        key={row.key}
-                        href={`/cockpit/kpis/${row.kpiId}`}
-                        className="flex items-center gap-2.5 px-4 py-2.5 transition-colors hover:bg-muted/40"
-                      >
-                        <span className="min-w-[52px] shrink-0 tabular-nums text-xs text-muted-foreground">{row.periodLabel}</span>
-                        <span className="h-[7px] w-[7px] shrink-0 rounded-full" style={{ background: row.dot }} aria-hidden />
-                        <span className="min-w-0 flex-1 text-xs font-medium text-foreground">{row.kpiName}</span>
-                        <span className="shrink-0 rounded-lg border border-primary/25 bg-primary/5 px-1.5 py-0.5 text-xs font-medium tabular-nums text-foreground">
-                          {row.valueStr}
-                        </span>
-                      </Link>
-                    ))}
-                  </>
-                )}
-              </div>
-            </Card>
-
-            {/* Alertas */}
-            <Card className="gap-0 border-border bg-card py-0 shadow-sm">
-              <CardHeader className="items-center border-b border-border px-4 py-3">
-                <CardTitle className="text-sm font-semibold leading-none text-foreground">Alertas</CardTitle>
-                <CardAction>
-                  <Badge
-                    variant="secondary"
-                    className="border border-chart-5/30 bg-chart-5/10 text-xs font-semibold tabular-nums text-chart-5 shadow-none hover:bg-chart-5/15"
-                  >
-                    {totalAlerts} ativos
-                  </Badge>
-                </CardAction>
-              </CardHeader>
-              <div className="divide-y divide-border">
-                {alerts.map((row) => {
-                  const Icon = row.icon
-                  return (
-                  <Link
-                    key={row.id}
-                    href={row.href}
-                    className="group flex items-center gap-2.5 px-4 py-2.5 transition-colors hover:bg-chart-5/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-chart-5/25 dark:hover:bg-chart-5/15"
-                  >
-                    <div
-                      className={cn(
-                        "flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-colors group-hover:bg-chart-5/15",
-                        row.iconBg,
-                      )}
-                    >
-                      <Icon className={cn("h-3.5 w-3.5", row.iconColor)} />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="text-xs font-medium text-foreground">{row.name}</div>
-                      <div className="text-xs text-muted-foreground">{row.meta}</div>
-                    </div>
-                    <span className={cn("text-sm font-bold tabular-nums", row.countColor)}>{row.count}</span>
-                  </Link>
-                  )
-                })}
-              </div>
-            </Card>
-
-            {/* Próximo intervalo (mesma lógica de período) */}
-            <Card className="gap-0 border-border bg-card py-0 shadow-sm">
-              <CardHeader className="border-b border-border px-4 py-3">
-                <CardTitle className="text-sm font-semibold leading-none text-foreground">{periodSidebarTitles[activePeriod][1]}</CardTitle>
-              </CardHeader>
-              <div className="divide-y divide-border">
-                {periodMeetingsSidebar.nextRows.length === 0 && (
-                  <div className="px-4 py-3 text-xs text-muted-foreground">Nenhuma sessão neste próximo intervalo.</div>
-                )}
-                {periodMeetingsSidebar.nextRows.map((r) => (
-                  <div key={r.rowKey} className="flex items-center gap-2.5 px-4 py-2.5 transition-colors hover:bg-accent/5">
-                    <span className="min-w-[52px] shrink-0 tabular-nums text-xs text-muted-foreground">
-                      {activePeriod === "week" ? r.time : `${r.day} ${r.date}`}
-                    </span>
-                    <span className="h-[7px] w-[7px] shrink-0 rounded-full" style={{ background: r.dot }} aria-hidden />
-                    <span className="min-w-0 flex-1 text-xs font-medium text-foreground">{r.name}</span>
-                    <span className={cn("shrink-0 rounded-lg border px-1.5 py-0.5 text-xs font-medium", r.badgeClass)}>{r.badge}</span>
+            {loading && cockpitKpis.length === 0 ? (
+              /* Carregando — skeletons */
+              <div className="cp-kpi-grid">
+                {[0, 1, 2, 3].map((i) => (
+                  <div key={i} className="cp-kpi-skeleton">
+                    <div className="cp-skeleton-bar" style={{ height: 10, width: "60%", marginBottom: 12 }} />
+                    <div className="cp-skeleton-bar" style={{ height: 28, width: "45%", marginBottom: 10 }} />
+                    <div className="cp-skeleton-bar" style={{ height: 8, width: "30%", marginBottom: 12 }} />
+                    <div className="cp-skeleton-bar" style={{ height: 3, width: "100%" }} />
                   </div>
                 ))}
               </div>
-            </Card>
+            ) : cockpitKpis.length === 0 ? (
+              /* Sem dados — cards fantasmas */
+              <div className="cp-kpi-grid">
+                {[
+                  { label: "Receita Recorrente" },
+                  { label: "Churn Rate" },
+                  { label: "Planos Concluídos", wide: true },
+                ].map((ghost, i) => (
+                  <div
+                    key={i}
+                    className={cn("cp-kpi-card cp-kpi-ghost", ghost.wide && "cp-kpi-ghost-wide")}
+                  >
+                    <div className="cp-kpi-label">{ghost.label}</div>
+                    <div className="cp-kpi-value">—</div>
+                    <div className="cp-kpi-sub">Nenhum dado</div>
+                    <div className="cp-progress-bar">
+                      <div className="cp-progress-fill" style={{ width: "0%" }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              /* Com dados */
+              <div className="cp-kpi-grid">
+                {cockpitKpis.slice(0, 4).map((k, i) => (
+                  <KpiCard key={String(k.id ?? i)} kpi={k} highlight={i === cockpitKpis.length - 1 && i > 0} />
+                ))}
+              </div>
+            )}
+          </section>
 
-          </div>
+          <div className="cp-divider" />
+
+          {/* ── Planos de Ação (kanban) ── */}
+          <section>
+            <div className="cp-sec-header">
+              <span className="cp-sec-title">Planos de Ação</span>
+              <Link href="/cockpit/planos-de-acao" className="cp-sec-link">Ver todos →</Link>
+            </div>
+
+            {plans.length === 0 && !loading ? (
+              <div className="cp-empty">
+                <div className="cp-empty-icon">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                    <path d="M9 11l3 3L22 4"/>
+                    <path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/>
+                  </svg>
+                </div>
+                <div className="cp-empty-title">Nenhum plano criado ainda</div>
+                <div className="cp-empty-desc">Crie seu primeiro plano de ação para começar a acompanhar a execução tática da sua equipe.</div>
+                <Link href="/cockpit/planos-de-acao">
+                  <button className="cp-empty-btn">+ Criar primeiro plano</button>
+                </Link>
+              </div>
+            ) : (
+              <div className="cp-kanban-wrap">
+                <KanbanCol
+                  title="A Fazer" countClass="cp-cnt-todo"
+                  count={todoPlans.length} plans={todoPlans.slice(0, 5)}
+                />
+                <KanbanCol
+                  title="Em Andamento" countClass="cp-cnt-doing"
+                  count={doingPlans.length} plans={doingPlans.slice(0, 5)}
+                />
+                <KanbanCol
+                  title="Concluído" countClass="cp-cnt-done"
+                  count={donePlans.length} plans={donePlans.slice(0, 5)}
+                />
+              </div>
+            )}
+          </section>
+
+          <div className="cp-divider" />
+
+          {/* ── Rituais do Dia ── */}
+          <section>
+            <div className="cp-sec-header">
+              <span className="cp-sec-title">Rituais do Dia</span>
+              <span className="cp-sec-meta">{todayLabel}</span>
+            </div>
+
+            {todayMeetings.length === 0 && !loading ? (
+              <div className="cp-empty">
+                <div className="cp-empty-icon">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                    <circle cx="12" cy="8" r="4"/>
+                    <path d="M6 20v-2a6 6 0 0112 0v2"/>
+                  </svg>
+                </div>
+                <div className="cp-empty-title">Nenhum ritual agendado</div>
+                <div className="cp-empty-desc">Configure os rituais da sua equipe para sincronizar alinhamentos, revisões e tomadas de decisão.</div>
+                <Link href="/cockpit/rituais">
+                  <button className="cp-empty-btn">+ Configurar rituais</button>
+                </Link>
+              </div>
+            ) : (
+              <div className="cp-ritual-list">
+                {todayMeetings.map((m) => (
+                  <RitualItem
+                    key={String(m.id ?? Math.random())}
+                    meeting={m}
+                    ritual={ritualById.get(String(m.ritual_id ?? ""))}
+                  />
+                ))}
+              </div>
+            )}
+          </section>
+
         </div>
-      </main>
+      </div>
     </>
   )
 }

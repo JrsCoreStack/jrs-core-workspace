@@ -5,8 +5,8 @@ import { TooltipProvider } from "@/components/ui/tooltip"
 import { useSidebarStore } from "@/stores/sidebar-store"
 import { cn } from "@/lib/utils"
 
-const SIDEBAR_WIDTH = "16rem"
-const SIDEBAR_WIDTH_ICON = "3rem"
+const SIDEBAR_WIDTH = "15rem"
+const SIDEBAR_WIDTH_ICON = "4rem"
 const SIDEBAR_KEYBOARD_SHORTCUT = "b"
 
 /**

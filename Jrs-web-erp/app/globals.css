@@ -72,14 +72,14 @@
   --chart-3:               oklch(0.68 0.15  150);   /* teal   */
   --chart-4:               oklch(0.75 0.12  80);    /* amber  */
   --chart-5:               oklch(0.62 0.22  25);    /* red    */
-  --sidebar:               oklch(0.95 0.006 293);
-  --sidebar-foreground:    oklch(0.16 0.02  293);
-  --sidebar-primary:       oklch(0.52 0.24  293);
-  --sidebar-primary-foreground: oklch(0.99 0 0);
-  --sidebar-accent:        oklch(0.91 0.008 293);
-  --sidebar-accent-foreground: oklch(0.16 0.02 293);
-  --sidebar-border:        oklch(0.86 0.01  293);
-  --sidebar-ring:          oklch(0.52 0.24  293);
+  --sidebar:               #ffffff;
+  --sidebar-foreground:    #0d0f14;
+  --sidebar-primary:       #7b61ff;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent:        rgba(123,97,255,0.12);
+  --sidebar-accent-foreground: #0d0f14;
+  --sidebar-border:        rgba(0,0,0,0.05);
+  --sidebar-ring:          #7b61ff;
 }
 
 /* ── Dark mode – Deep purple ── */
@@ -137,8 +137,8 @@
   /* Backgrounds */
   --rf-bg-base:        #f0f1f4;
   --rf-bg-surface:     #ffffff;
-  --rf-bg-elevated:    #ffffff;
-  --rf-bg-overlay:     #e8eaf0;
+  --rf-bg-elevated:    #f8f9fb;
+  --rf-bg-overlay:     #eceef2;
   --rf-bg-hover:       rgba(0,0,0,0.03);
   /* Borders */
   --rf-border-subtle:  rgba(0,0,0,0.05);
@@ -150,27 +150,51 @@
   --rf-text-muted:     #aab0bd;
   /* Accent */
   --rf-accent:         #7b61ff;
-  --rf-accent-hover:   #6b4eff;
-  --rf-accent-soft:    rgba(123,97,255,0.10);
-  --rf-accent-border:  rgba(123,97,255,0.22);
+  --rf-accent-hover:   #9178ff;
+  --rf-accent-soft:    rgba(123,97,255,0.12);
+  --rf-accent-border:  rgba(123,97,255,0.28);
   /* Semantic */
   --rf-cyan:           #00d4ff;
   --rf-cyan-soft:      rgba(0,212,255,0.08);
   --rf-danger:         #ef4444;
-  --rf-danger-soft:    rgba(239,68,68,0.08);
+  --rf-danger-soft:    rgba(239,68,68,0.10);
   --rf-success:        #22c55e;
   --rf-success-soft:   rgba(34,197,94,0.08);
   --rf-warning:        #f59e0b;
-  /* Shadows — mais suaves no light */
+  /* Shadows */
   --rf-shadow-sm:      0 1px 4px rgba(0,0,0,0.07);
-  --rf-shadow-md:      0 4px 24px rgba(0,0,0,0.08);
-  --rf-shadow-lg:      0 8px 48px rgba(0,0,0,0.12);
+  --rf-shadow-md:      0 4px 20px rgba(0,0,0,0.08);
+  --rf-shadow-lg:      0 8px 40px rgba(0,0,0,0.12);
   /* Radii */
   --rf-radius-sm:      6px;
   --rf-radius-md:      10px;
   --rf-radius-lg:      14px;
   --rf-radius-xl:      20px;
-  --rf-transition:     0.18s cubic-bezier(0.4,0,0.2,1);
+  --rf-transition:     0.22s cubic-bezier(0.4,0,0.2,1);
+  /* Fonts */
+  --rf-font-display:   var(--font-syne, 'Syne', sans-serif);
+  --rf-font-body:      var(--font-dm-sans, 'DM Sans', sans-serif);
+}
+
+/* ── RitualFlow Design System — Dark mode ── */
+.dark {
+  --rf-bg-base:        #09090b;
+  --rf-bg-surface:     #0f1117;
+  --rf-bg-elevated:    #16181f;
+  --rf-bg-overlay:     #1c1f28;
+  --rf-bg-hover:       rgba(255,255,255,0.04);
+  --rf-border-subtle:  rgba(255,255,255,0.05);
+  --rf-border-default: rgba(255,255,255,0.09);
+  --rf-border-strong:  rgba(255,255,255,0.16);
+  --rf-text-primary:   #e8eaf0;
+  --rf-text-secondary: #7e8a9e;
+  --rf-text-muted:     #3d4455;
+  --rf-shadow-md:      0 4px 20px rgba(0,0,0,0.5);
+  --rf-shadow-lg:      0 8px 40px rgba(0,0,0,0.65);
+  /* sidebar dark tokens */
+  --sidebar:           #0f1117;
+  --sidebar-foreground:#e8eaf0;
+  --sidebar-border:    rgba(255,255,255,0.05);
 }
 
 /* ── Auth: inputs — placeholder + focus ── */

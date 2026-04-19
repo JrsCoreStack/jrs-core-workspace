@@ -1,13 +1,11 @@
 "use client"
 
 import { Fragment, Suspense, useCallback, useEffect, useMemo, useState } from "react"
-import { useSearchParams } from "next/navigation"
+import { useSearchParams, useRouter } from "next/navigation"
 import { toast } from "sonner"
 import api from "@/utils/api"
-import { Header } from "@/components/ui/header"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
 import {
   Sheet,
@@ -23,11 +21,9 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { cn } from "@/lib/utils"
-import { COCKPIT_MAIN_CLASS } from "@/lib/cockpit/cockpit-page-shell"
 import { buildCreateKpiBody } from "@/lib/cockpit/kpi-create-payload"
 import { toastApiError } from "@/lib/cockpit/api-error"
 import { COCKPIT_AREAS, areaColor, areaLabel, normalizeAreaSlug } from "@/lib/cockpit/constants"
-import { Card, CardContent } from "@/components/ui/card"
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -37,22 +33,10 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import { SidebarTrigger } from "@/components/ui/sidebar"
 import {
-  Search,
-  Download,
   Plus,
-  Info,
-  ChevronUp,
-  ChevronDown,
-  ArrowUp,
-  ArrowDown,
-  ArrowRight,
-  Eye,
   Pencil,
-  CheckCircle2,
-  AlertTriangle,
-  XCircle,
-  RefreshCw,
   DollarSign,
   Percent,
   Hash,
@@ -60,6 +44,7 @@ import {
   X,
   Paperclip,
   Trash2,
+  Filter,
 } from "lucide-react"
 
 type KpiStatus = "above" | "attention" | "critical" | "empty"
@@ -233,74 +218,40 @@ function deviationColor(pct: number) {
   return { bg: "#f1f5f9", text: "#64748b", border: "#e2e8f0" }
 }
 
-function TrendIcon({ trend }: { trend: KpiTrend }) {
-  if (trend === "up") return <ArrowUp className="h-3.5 w-3.5 text-emerald-500" />
-  if (trend === "down") return <ArrowDown className="h-3.5 w-3.5 text-red-500" />
-  return <ArrowRight className="h-3.5 w-3.5 text-muted-foreground" />
-}
 
 function AreaGroupHeader({
   area,
   color,
   kpis,
-  collapsed,
   onToggle,
 }: {
   area: string
   color: string
   kpis: KpiRow[]
-  collapsed: boolean
   onToggle: () => void
 }) {
-  const counts = {
-    above: kpis.filter((k) => k.status === "above").length,
-    attention: kpis.filter((k) => k.status === "attention").length,
-    critical: kpis.filter((k) => k.status === "critical").length,
-    empty: kpis.filter((k) => k.status === "empty").length,
-  }
-
   return (
-    <tr className="cursor-pointer select-none border-b border-border bg-muted/30 hover:bg-muted/50" onClick={onToggle}>
-      <td colSpan={8} className="px-4 py-2.5">
-        <div className="flex items-center gap-3">
-          <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: color }} />
-          <span className="text-xs font-bold uppercase tracking-wider text-foreground">{areaLabel(area)}</span>
-          <div className="flex items-center gap-1.5">
-            {counts.above > 0 && (
-              <span className="inline-flex items-center gap-0.5 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-600 ring-1 ring-emerald-500/20">
-                {counts.above}✓
-              </span>
-            )}
-            {counts.attention > 0 && (
-              <span className="inline-flex items-center gap-0.5 rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold text-amber-600 ring-1 ring-amber-500/20">
-                {counts.attention}△
-              </span>
-            )}
-            {counts.critical > 0 && (
-              <span className="inline-flex items-center gap-0.5 rounded-full bg-red-500/10 px-2 py-0.5 text-[10px] font-bold text-red-600 ring-1 ring-red-500/20">
-                {counts.critical}✗
-              </span>
-            )}
-            {counts.empty > 0 && (
-              <span className="inline-flex items-center gap-0.5 rounded-full bg-muted px-2 py-0.5 text-[10px] font-bold text-muted-foreground ring-1 ring-border">
-                {counts.empty}—
-              </span>
-            )}
-          </div>
-          <div className="ml-auto flex items-center">
-            {collapsed ? (
-              <ChevronDown className="h-4 w-4 text-muted-foreground" />
-            ) : (
-              <ChevronUp className="h-4 w-4 text-muted-foreground" />
-            )}
-          </div>
-        </div>
-      </td>
-    </tr>
+    <div
+      className="kpi-area-hd"
+      onClick={onToggle}
+      style={{
+        display: "flex", alignItems: "center", gap: 8,
+        padding: "12px 4px 6px", fontSize: 11, fontWeight: 700,
+        textTransform: "uppercase", letterSpacing: "0.08em",
+        color: "var(--rf-text-muted)", cursor: "pointer", userSelect: "none",
+      }}
+    >
+      <span style={{ width: 8, height: 8, borderRadius: "50%", background: color, flexShrink: 0 }} />
+      {areaLabel(area)}{" "}
+      <span style={{ fontFamily: "var(--rf-font-mono, monospace)", fontWeight: 400 }}>
+        · {kpis.length} KPIs
+      </span>
+      <div style={{ flex: 1, height: 1, background: "var(--rf-border-subtle)" }} />
+    </div>
   )
 }
 
-function KpiTableRow({
+function KpiListItem({
   kpi,
   onView,
   onEdit,
@@ -309,90 +260,82 @@ function KpiTableRow({
   onView: () => void
   onEdit: () => void
 }) {
-  const dev = deviationColor(kpi.deviationPct)
-  /** Meta mês = 0: usa meta anual para a barra (evita ficar vazia quando só há meta anual). */
-  const progress = (() => {
-    const r = kpi.result
-    const m = kpi.monthGoal
-    const a = kpi.annualGoal
-    if (m > 0) return Math.min(100, Math.max(0, (r / m) * 100))
-    if (a > 0) return Math.min(100, Math.max(0, (r / a) * 100))
-    return 0
-  })()
-  const barColor =
-    kpi.status === "above" ? "#22c55e" : kpi.status === "attention" ? "#f59e0b" : kpi.status === "critical" ? "#ef4444" : "#94a3b8"
+  const dotColor =
+    kpi.status === "above" ? "var(--rf-success)"
+    : kpi.status === "attention" ? "var(--rf-warning)"
+    : kpi.status === "critical" ? "var(--rf-danger)"
+    : "var(--rf-text-muted)"
+
+  const pctClass =
+    kpi.status === "empty" || kpi.deviationPct === 0 ? "kpi-pct-empty"
+    : kpi.deviationPct > 0 ? "kpi-pct-good"
+    : kpi.status === "critical" ? "kpi-pct-bad"
+    : "kpi-pct-warn"
+
+  const resultStr = kpi.status === "empty" ? "—" : formatVal(kpi.result, kpi.resultUnit)
+  const goalStr = kpi.monthGoal > 0
+    ? `Meta: ${formatVal(kpi.monthGoal, kpi.resultUnit, true)}`
+    : kpi.annualGoal > 0
+    ? `Meta: ${formatVal(kpi.annualGoal, kpi.resultUnit, true)}`
+    : "Sem meta"
+  const pctStr = kpi.status === "empty" || kpi.deviationPct === 0
+    ? "—"
+    : `${kpi.deviationPct > 0 ? "+" : ""}${kpi.deviationPct.toFixed(1)}%`
 
   return (
-    <tr className="group border-b border-border transition-colors hover:bg-muted/30">
-      <td className="w-[36%] px-4 pt-3 pb-0 align-top">
-        <div className="flex items-start gap-2.5">
-          <span className="mt-0.5 h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: kpi.areaColor }} />
-          <div className="min-w-0 flex-1 pb-3">
-            <div className="flex items-start gap-1.5">
-              <span className="text-sm font-medium leading-snug text-foreground">{kpi.name}</span>
-              <Info className="mt-0.5 h-3 w-3 shrink-0 text-muted-foreground/60" />
-            </div>
-            <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
-              <span>{kpi.code}</span>
-              <span>·</span>
-              <span>{kpi.type}</span>
-              <span>·</span>
-              <span>{kpi.aggregation}</span>
-              <span>·</span>
-              <span>{kpi.frequency}</span>
-            </div>
-            <div className="mt-2 h-1 w-full overflow-hidden rounded-full bg-muted">
-              <div className="h-full rounded-full transition-all" style={{ width: `${progress}%`, backgroundColor: barColor }} />
-            </div>
-          </div>
+    <div
+      className="kpi-list-item"
+      onClick={onView}
+      style={{
+        background: "var(--rf-bg-surface)",
+        border: "1px solid var(--rf-border-default)",
+        borderRadius: "var(--rf-radius-lg)",
+        padding: 16,
+        display: "flex",
+        alignItems: "center",
+        gap: 14,
+        cursor: "pointer",
+        transition: "all var(--rf-transition)",
+        position: "relative",
+      }}
+    >
+      <div style={{ width: 10, height: 10, borderRadius: "50%", background: dotColor, flexShrink: 0 }} />
+      <div style={{ fontFamily: "var(--rf-font-mono, monospace)", fontSize: 12, color: "var(--rf-text-muted)", minWidth: 32 }}>
+        {kpi.code || "—"}
+      </div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 14, fontWeight: 600, color: "var(--rf-text-primary)" }}>{kpi.name}</div>
+        <div style={{ fontSize: 11, color: "var(--rf-text-secondary)", marginTop: 2, display: "flex", alignItems: "center", gap: 6 }}>
+          {areaLabel(kpi.area)}
+          {kpi.frequency && (
+            <>
+              <span style={{ color: "var(--rf-border-strong)" }}>·</span>
+              {kpi.frequency}
+            </>
+          )}
         </div>
-      </td>
-
-      <td className="px-4 py-3 text-right align-middle">
-        <div className="text-sm font-bold text-foreground">{formatVal(kpi.result, kpi.resultUnit)}</div>
-        <div className="text-[11px] text-muted-foreground">acumulado</div>
-      </td>
-
-      <td className="px-4 py-3 text-right align-middle">
-        <div className="text-sm text-foreground">{formatVal(kpi.monthGoal, kpi.resultUnit, true)}</div>
-        <div className="text-[11px] text-muted-foreground">meta mês</div>
-      </td>
-
-      <td className="px-4 py-3 text-right align-middle">
-        <div className="text-sm text-foreground">{formatVal(kpi.annualGoal, kpi.resultUnit, true)}</div>
-        <div className="text-[11px] text-muted-foreground">meta anual</div>
-      </td>
-
-      <td className="px-4 py-3 text-right align-middle">
-        <span className="inline-flex items-center rounded-md px-2 py-0.5 text-xs font-bold tabular-nums" style={{ backgroundColor: dev.bg, color: dev.text, border: `1px solid ${dev.border}` }}>
-          {formatDeviationPct(kpi.deviationPct)}
-        </span>
-      </td>
-
-      <td className="px-4 py-3 text-center align-middle">
-        <TrendIcon trend={kpi.trend} />
-      </td>
-
-      <td className="px-4 py-3 align-middle">
-        <div className="flex items-center gap-2">
-          <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[9px] font-bold text-white" style={{ backgroundColor: kpi.ownerColor }}>
-            {kpi.ownerInitials}
-          </div>
-          <span className="text-sm text-foreground">{kpi.ownerName}</span>
+      </div>
+      <div style={{ textAlign: "right", flexShrink: 0 }}>
+        <div style={{ fontFamily: "var(--rf-font-display)", fontSize: 15, fontWeight: 700, color: "var(--rf-text-primary)" }}>
+          {resultStr}
         </div>
-      </td>
-
-      <td className="px-3 py-3 align-middle">
-        <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-          <button onClick={(e) => { e.stopPropagation(); onView() }} title="Ver detalhes" className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
-            <Eye className="h-3.5 w-3.5" />
-          </button>
-          <button onClick={(e) => { e.stopPropagation(); onEdit() }} title="Editar KPI" className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
-            <Pencil className="h-3.5 w-3.5" />
-          </button>
-        </div>
-      </td>
-    </tr>
+        <div style={{ fontSize: 11, color: "var(--rf-text-muted)", marginTop: 2 }}>{goalStr}</div>
+        <div className={pctClass} style={{ fontSize: 12, fontWeight: 700, marginTop: 3 }}>{pctStr}</div>
+      </div>
+      <button
+        onClick={(e) => { e.stopPropagation(); onEdit() }}
+        title="Editar KPI"
+        style={{
+          position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)",
+          opacity: 0, transition: "opacity 0.15s",
+          background: "var(--rf-bg-elevated)", border: "1px solid var(--rf-border-default)",
+          borderRadius: 6, padding: "5px 8px", cursor: "pointer", color: "var(--rf-text-secondary)",
+        }}
+        className="kpi-edit-btn"
+      >
+        <Pencil style={{ width: 13, height: 13 }} />
+      </button>
+    </div>
   )
 }
 
@@ -1340,12 +1283,12 @@ function NovoKpiDialog({
 
 function KpisPageInner() {
   const searchParams = useSearchParams()
+  const router = useRouter()
   const [q, setQ] = useState("")
   const [filterArea, setFilterArea] = useState("all")
   const [filterType, setFilterType] = useState("all")
   const [filterStatus, setFilterStatus] = useState<"all" | KpiStatus>("all")
-  const [period, setPeriod] = useState<"mes" | "semana" | "ano">("mes")
-  const [onlyCockpit, setOnlyCockpit] = useState(false)
+  const [filterVisibility, setFilterVisibility] = useState("all")
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({})
   const [selectedKpi, setSelectedKpi] = useState<KpiRow | null>(null)
   const [createOpen, setCreateOpen] = useState(false)
@@ -1409,7 +1352,6 @@ function KpisPageInner() {
 
   const filtered = useMemo(() => {
     return rows.filter((k) => {
-      if (onlyCockpit && !k.isCockpit) return false
       if (filterArea !== "all" && k.area !== filterArea) return false
       if (filterType !== "all" && k.type !== filterType) return false
       if (filterStatus !== "all" && k.status !== filterStatus) return false
@@ -1419,7 +1361,7 @@ function KpisPageInner() {
       }
       return true
     })
-  }, [q, filterArea, filterType, filterStatus, onlyCockpit, rows])
+  }, [q, filterArea, filterType, filterStatus, rows])
 
   const summary = useMemo(() => ({
     above: filtered.filter((k) => k.status === "above").length,
@@ -1438,191 +1380,263 @@ function KpisPageInner() {
     }))
   }, [filtered])
 
-  const summaryCards = [
-    { label: "ATINGINDO META", value: summary.above, color: "#22c55e", Icon: CheckCircle2 },
-    { label: "EM ATENÇÃO", value: summary.attention, color: "#f59e0b", Icon: AlertTriangle },
-    { label: "CRÍTICO", value: summary.critical, color: "#ef4444", Icon: XCircle },
-    { label: "SEM ATUALIZAÇÃO", value: summary.empty, color: "#94a3b8", Icon: RefreshCw },
-  ]
-
   function toggleArea(area: string) {
     setCollapsed((prev) => ({ ...prev, [area]: !prev[area] }))
   }
 
-  function handleExport() {
-    const headers = ["Código", "Nome", "Área", "Tipo", "Resultado", "Meta Mês", "Meta Anual", "Desvio %", "Tendência", "Responsável"]
-    const rows = filtered.map((k) => [k.code, `"${k.name}"`, k.area, k.type, k.result, k.monthGoal, k.annualGoal, k.deviationPct, k.trend, k.ownerName])
-    const csv = [headers.join(","), ...rows.map((r) => r.join(","))].join("\n")
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement("a")
-    a.href = url
-    a.download = `kpis-${new Date().toISOString().slice(0, 10)}.csv`
-    a.click()
-    URL.revokeObjectURL(url)
-  }
+  const visibilityChips = [
+    { id: "all", label: "Todos" },
+    { id: "partners", label: "Somente Sócios" },
+    { id: "sector", label: "Por Setor" },
+    { id: "public", label: "Público" },
+  ]
 
   return (
     <>
-      <Header
-        title="Gestão de KPIs"
-        description={`${filtered.length} indicadores ativos em ${groupedAreas.length} áreas`}
-        actions={
-          <div className="flex w-full flex-wrap gap-2 sm:w-auto sm:justify-end">
-            <Button variant="outline" size="sm" className="gap-1.5 bg-transparent" onClick={handleExport}>
-              <Download className="h-3.5 w-3.5" />
-              Exportar
-            </Button>
-            <Button
-              variant="default"
-              size="sm"
-              className="gap-1.5"
-              onClick={() => {
-                setEditing(null)
-                setCreateOpen(true)
-              }}
-            >
-              <Plus className="h-3.5 w-3.5" />
-              Novo KPI
-            </Button>
-          </div>
+      <style>{`
+        .kpi-list-item:hover { border-color: var(--rf-border-strong) !important; transform: translateX(2px); }
+        .kpi-list-item:hover .kpi-edit-btn { opacity: 1 !important; }
+        .kpi-pct-good { color: var(--rf-success); }
+        .kpi-pct-bad { color: var(--rf-danger); }
+        .kpi-pct-warn { color: var(--rf-warning); }
+        .kpi-pct-empty { color: var(--rf-text-muted); }
+        .kpi-filter-select {
+          background: var(--rf-bg-elevated);
+          border: 1px solid var(--rf-border-default);
+          border-radius: var(--rf-radius-md);
+          padding: 8px 32px 8px 12px;
+          color: var(--rf-text-primary);
+          font-family: var(--rf-font-body);
+          font-size: 13px;
+          font-weight: 500;
+          cursor: pointer;
+          outline: none;
+          -webkit-appearance: none;
+          background-image: url("data:image/svg+xml,%3Csvg width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%237e8a9e' stroke-width='2' xmlns='http://www.w3.org/2000/svg'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+          background-repeat: no-repeat;
+          background-position: right 10px center;
+          min-width: 140px;
+          transition: all var(--rf-transition);
         }
-      />
+        .kpi-filter-select:focus { border-color: var(--rf-accent); box-shadow: 0 0 0 3px var(--rf-accent-soft); }
+        .kpi-vis-chip {
+          padding: 5px 12px;
+          border-radius: 9999px;
+          border: 1px solid var(--rf-border-default);
+          background: var(--rf-bg-elevated);
+          font-size: 11px; font-weight: 600;
+          color: var(--rf-text-secondary);
+          cursor: pointer;
+          transition: all var(--rf-transition);
+          white-space: nowrap;
+        }
+        .kpi-vis-chip.active {
+          background: var(--rf-accent-soft);
+          color: var(--rf-accent);
+          border-color: var(--rf-accent-border);
+        }
+        .kpi-empty-state {
+          display: flex; flex-direction: column; align-items: center;
+          justify-content: center; padding: 60px 24px; text-align: center;
+        }
+        .kpi-search-wrap {
+          position: relative; flex: 1;
+        }
+        .kpi-search-wrap svg {
+          position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+          color: var(--rf-text-muted); pointer-events: none;
+        }
+        .kpi-search-input {
+          width: 100%;
+          background: var(--rf-bg-elevated);
+          border: 1px solid var(--rf-border-default);
+          border-radius: var(--rf-radius-md);
+          padding: 8px 12px 8px 36px;
+          color: var(--rf-text-primary);
+          font-family: var(--rf-font-body);
+          font-size: 13px;
+          outline: none;
+          transition: all var(--rf-transition);
+        }
+        .kpi-search-input:focus { border-color: var(--rf-accent); box-shadow: 0 0 0 3px var(--rf-accent-soft); }
+        .kpi-search-input::placeholder { color: var(--rf-text-muted); }
+      `}</style>
 
-      <main className={COCKPIT_MAIN_CLASS}>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-4">
-          {summaryCards.map((c) => (
-            <Card key={c.label} className="bg-card border-border">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-muted-foreground">{c.label}</p>
-                    <p className="text-2xl font-bold mt-1" style={{ color: c.color }}>
-                      {c.value}
-                    </p>
-                  </div>
-                  <div className="flex h-12 w-12 items-center justify-center rounded-xl" style={{ backgroundColor: c.color + "18" }}>
-                    <c.Icon className="h-6 w-6" style={{ color: c.color }} />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+      {/* TOPBAR */}
+      <div style={{
+        background: "var(--rf-bg-surface)",
+        borderBottom: "1px solid var(--rf-border-subtle)",
+        padding: "18px 20px",
+        display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12,
+      }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <SidebarTrigger />
+          <div>
+            <div style={{ fontFamily: "var(--rf-font-display)", fontSize: 20, fontWeight: 800, color: "var(--rf-text-primary)", letterSpacing: "-0.3px" }}>
+              Indicadores (KPIs)
+            </div>
+            <div style={{ fontSize: 12, color: "var(--rf-text-secondary)", marginTop: 3 }}>
+              {loading ? "Carregando..." : `${rows.length} indicadores cadastrados`}
+            </div>
+          </div>
+        </div>
+        <button
+          onClick={() => router.push("/cockpit/kpis/novo")}
+          style={{
+            display: "inline-flex", alignItems: "center", gap: 6,
+            padding: "8px 16px", borderRadius: "var(--rf-radius-md)",
+            background: "var(--rf-accent)", color: "#fff", border: "none",
+            fontFamily: "var(--rf-font-body)", fontSize: 13, fontWeight: 600,
+            cursor: "pointer", boxShadow: "0 2px 10px rgba(123,97,255,0.35)",
+            transition: "all var(--rf-transition)", flexShrink: 0,
+          }}
+        >
+          <Plus style={{ width: 13, height: 13 }} />
+          Novo KPI
+        </button>
+      </div>
+
+      {/* FILTER BAR */}
+      <div style={{
+        display: "flex", alignItems: "center", gap: 10, padding: "14px 20px",
+        borderBottom: "1px solid var(--rf-border-subtle)",
+        background: "var(--rf-bg-surface)", flexWrap: "wrap",
+      }}>
+        <Filter style={{ width: 15, height: 15, color: "var(--rf-text-muted)", flexShrink: 0 }} />
+
+        <div className="kpi-search-wrap" style={{ minWidth: 180, maxWidth: 240 }}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          </svg>
+          <input
+            className="kpi-search-input"
+            placeholder="Buscar KPI..."
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+          />
+        </div>
+
+        <select
+          className="kpi-filter-select"
+          value={filterArea}
+          onChange={(e) => setFilterArea(e.target.value)}
+        >
+          <option value="all">Todas as áreas</option>
+          {COCKPIT_AREAS.map((a) => (
+            <option key={a.slug} value={a.slug}>{areaLabel(a.slug)}</option>
+          ))}
+        </select>
+
+        <select
+          className="kpi-filter-select"
+          value={filterType}
+          onChange={(e) => setFilterType(e.target.value)}
+        >
+          <option value="all">Todos os tipos</option>
+          {KPI_TYPES.map((t) => (
+            <option key={t} value={t}>{t}</option>
+          ))}
+        </select>
+
+        <select
+          className="kpi-filter-select"
+          value={filterStatus}
+          onChange={(e) => setFilterStatus(e.target.value as "all" | KpiStatus)}
+        >
+          <option value="all">Todos os status</option>
+          <option value="above">Atingindo Meta</option>
+          <option value="attention">Em Atenção</option>
+          <option value="critical">Crítico</option>
+          <option value="empty">Sem Atualização</option>
+        </select>
+
+        <div style={{ display: "flex", gap: 6, marginLeft: "auto", flexWrap: "wrap" }}>
+          {visibilityChips.map((chip) => (
+            <div
+              key={chip.id}
+              className={`kpi-vis-chip${filterVisibility === chip.id ? " active" : ""}`}
+              onClick={() => setFilterVisibility(chip.id)}
+            >
+              {chip.label}
+            </div>
           ))}
         </div>
+      </div>
 
-        <Card className="bg-card border-border">
-          <CardContent className="p-6">
-            <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
-            <div className="relative min-w-0 flex-1 sm:min-w-[220px]">
-              <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-              <Input placeholder="Buscar KPI por nome ou código..." value={q} onChange={(e) => setQ(e.target.value)} className="pl-9 text-sm" />
-            </div>
-
-            <Select value={filterArea} onValueChange={setFilterArea}>
-              <SelectTrigger className="w-full text-sm sm:w-[160px]">
-                <SelectValue placeholder="Todas as áreas" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todas as áreas</SelectItem>
-                {COCKPIT_AREAS.map((a) => (
-                  <SelectItem key={a.slug} value={a.slug}>
-                    {areaLabel(a.slug)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            <Select value={filterType} onValueChange={setFilterType}>
-              <SelectTrigger className="w-full text-sm sm:w-[150px]">
-                <SelectValue placeholder="Todos os tipos" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos os tipos</SelectItem>
-                {KPI_TYPES.map((t) => (
-                  <SelectItem key={t} value={t}>{t}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            <Select
-              value={filterStatus}
-              onValueChange={(v) => setFilterStatus(v as "all" | KpiStatus)}
-            >
-              <SelectTrigger className="w-full text-sm sm:w-[160px]">
-                <SelectValue placeholder="Todos os status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos os status</SelectItem>
-                {Object.entries(KPI_STATUS_LABELS).map(([v, l]) => (
-                  <SelectItem key={v} value={v}>{l}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            <div className="flex items-center rounded-lg border border-border bg-muted/30 p-0.5">
-              {(["mes", "semana", "ano"] as const).map((p) => (
-                <button
-                  key={p}
-                  onClick={() => setPeriod(p)}
-                  className={cn(
-                    "rounded-md px-3 py-1.5 text-xs font-semibold transition-all",
-                    period === p ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
-                  )}
-                >
-                  {p === "mes" ? "Mês atual" : p === "semana" ? "Semana" : "Ano"}
-                </button>
-              ))}
-            </div>
-
-            <div className="flex items-center gap-2">
-              <Switch id="cockpit-toggle" checked={onlyCockpit} onCheckedChange={setOnlyCockpit} />
-              <Label htmlFor="cockpit-toggle" className="cursor-pointer text-sm text-muted-foreground">
-                Apenas cockpit
-              </Label>
-            </div>
+      {/* CONTENT */}
+      <div style={{ padding: "16px 20px", paddingBottom: 60 }}>
+        {loading ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {[1, 2, 3, 4, 5].map((i) => (
+              <div key={i} style={{
+                background: "var(--rf-bg-surface)", border: "1px solid var(--rf-border-default)",
+                borderRadius: "var(--rf-radius-lg)", padding: 16, height: 68,
+                animation: "pulse 1.5s ease-in-out infinite",
+              }} />
+            ))}
           </div>
-          </CardContent>
-        </Card>
-
-        <div className="overflow-x-auto rounded-lg border border-border [-ms-overflow-style:none] [scrollbar-width:thin]">
-          <table className="w-full min-w-[720px] border-collapse text-sm">
-            <thead>
-              <tr className="border-b border-border bg-muted/50">
-                <th className="px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Indicador ↑</th>
-                <th className="px-4 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Resultado</th>
-                <th className="px-4 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Meta Mês</th>
-                <th className="px-4 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Meta Anual</th>
-                <th className="px-4 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Desvio</th>
-                <th className="px-4 py-2.5 text-center text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Tend.</th>
-                <th className="px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Responsável</th>
-                <th className="w-[72px] px-3 py-2.5" />
-              </tr>
-            </thead>
-            <tbody className="bg-card">
-              {groupedAreas.map(({ area, color, kpis }) => (
-                <Fragment key={area}>
-                  <AreaGroupHeader
-                    key={`h-${area}`}
-                    area={area}
-                    color={color}
-                    kpis={kpis}
-                    collapsed={!!collapsed[area]}
-                    onToggle={() => toggleArea(area)}
-                  />
-                  {!collapsed[area] && kpis.map((kpi) => (
-                    <KpiTableRow
-                      key={kpi.id}
-                      kpi={kpi}
-                      onView={() => setSelectedKpi(kpi)}
-                      onEdit={() => { setEditing(kpi); setCreateOpen(true) }}
-                    />
-                  ))}
-                </Fragment>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </main>
+        ) : filtered.length === 0 ? (
+          <div className="kpi-empty-state">
+            <div style={{
+              width: 64, height: 64, borderRadius: "var(--rf-radius-xl)",
+              background: "var(--rf-bg-elevated)", border: "1px solid var(--rf-border-default)",
+              display: "grid", placeItems: "center", marginBottom: 20, color: "var(--rf-text-muted)",
+            }}>
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+              </svg>
+            </div>
+            <div style={{ fontFamily: "var(--rf-font-display)", fontSize: 18, fontWeight: 700, color: "var(--rf-text-primary)", marginBottom: 8 }}>
+              Nenhum KPI encontrado
+            </div>
+            <div style={{ fontSize: 13, color: "var(--rf-text-secondary)", lineHeight: 1.6, maxWidth: 280, marginBottom: 24 }}>
+              {rows.length === 0
+                ? "Cadastre os indicadores-chave de performance da sua empresa para acompanhar metas anuais e mensais."
+                : "Tente ajustar os filtros para encontrar o KPI desejado."}
+            </div>
+            {rows.length === 0 && (
+              <button
+                onClick={() => router.push("/cockpit/kpis/novo")}
+                style={{
+                  display: "inline-flex", alignItems: "center", gap: 6,
+                  padding: "12px 28px", borderRadius: "var(--rf-radius-md)",
+                  background: "var(--rf-accent)", color: "#fff", border: "none",
+                  fontFamily: "var(--rf-font-body)", fontSize: 14, fontWeight: 600,
+                  cursor: "pointer", boxShadow: "0 2px 10px rgba(123,97,255,0.35)",
+                }}
+              >
+                <Plus style={{ width: 14, height: 14 }} />
+                Cadastrar primeiro KPI
+              </button>
+            )}
+          </div>
+        ) : (
+          <>
+            {groupedAreas.map(({ area, color, kpis }) => (
+              <Fragment key={area}>
+                <AreaGroupHeader
+                  area={area}
+                  color={color}
+                  kpis={kpis}
+                  onToggle={() => toggleArea(area)}
+                />
+                {!collapsed[area] && (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 16 }}>
+                    {kpis.map((kpi) => (
+                      <KpiListItem
+                        key={kpi.id}
+                        kpi={kpi}
+                        onView={() => setSelectedKpi(kpi)}
+                        onEdit={() => { setEditing(kpi); setCreateOpen(true) }}
+                      />
+                    ))}
+                  </div>
+                )}
+              </Fragment>
+            ))}
+          </>
+        )}
+      </div>
 
       <KpiDetailPanel
         kpi={selectedKpi}
@@ -1638,30 +1652,18 @@ function KpisPageInner() {
           const name = patch.name?.trim() ?? ""
           const area = patch.area?.trim() ?? ""
           const ownerName = patch.ownerName?.trim() ?? ""
-          if (!name) {
-            toast.error("Informe o nome do KPI.")
-            throw new Error("validação")
-          }
-          if (!area) {
-            toast.error("Selecione a área do KPI.")
-            throw new Error("validação")
-          }
-          if (!ownerName) {
-            toast.error("Informe o responsável do KPI.")
-            throw new Error("validação")
-          }
+          if (!name) { toast.error("Informe o nome do KPI."); throw new Error("validação") }
+          if (!area) { toast.error("Selecione a área do KPI."); throw new Error("validação") }
+          if (!ownerName) { toast.error("Informe o responsável do KPI."); throw new Error("validação") }
           const body = buildCreateKpiBody({
-            name,
-            code: patch.code?.trim() || null,
-            area,
+            name, code: patch.code?.trim() || null, area,
             kpiType: patch.type ?? "Monetário",
             unit: patch.resultUnit ?? "",
             inputFrequency: patch.frequency ?? "Semanal",
             aggregation: patch.aggregation ?? "Soma",
             monthGoal: patch.monthGoal ?? 0,
             annualGoal: patch.annualGoal ?? 0,
-            ownerName,
-            isCockpit: !!patch.isCockpit,
+            ownerName, isCockpit: !!patch.isCockpit,
             ritualId: patch.ritualId ?? null,
             criticalDeviationThresholdPct: patch.criticalDeviationThresholdPct ?? 15,
             attentionDeviationThresholdPct: patch.attentionDeviationThresholdPct ?? 5,
@@ -1688,7 +1690,11 @@ function KpisPageInner() {
 
 export default function KpisPage() {
   return (
-    <Suspense fallback={<main className={COCKPIT_MAIN_CLASS}><p className="p-6 text-sm text-muted-foreground">Carregando KPIs…</p></main>}>
+    <Suspense fallback={
+      <div style={{ padding: 40, color: "var(--rf-text-muted)", fontSize: 14 }}>
+        Carregando KPIs…
+      </div>
+    }>
       <KpisPageInner />
     </Suspense>
   )

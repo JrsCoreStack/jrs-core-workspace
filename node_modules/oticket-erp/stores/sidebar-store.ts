@@ -19,7 +19,7 @@ const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7
 export const useSidebarStore = create<SidebarState>()(
   persist(
     (set, get) => ({
-      open: true,
+      open: false,
       openMobile: false,
       isMobile: false,
 
