@@ -132,6 +132,83 @@
   100% { transform: translateX(200%); }
 }
 
+/* ── RF Skeleton shimmer ── */
+@keyframes rf-shimmer {
+  0%   { background-position: -800px 0; }
+  100% { background-position: 800px 0; }
+}
+
+/* ── RF Spinner: ring ── */
+@keyframes rf-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+@keyframes rf-spin-ccw {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(-360deg); }
+}
+@keyframes rf-spin-dash {
+  0%   { stroke-dasharray: 1,150; stroke-dashoffset: 0; }
+  50%  { stroke-dasharray: 90,150; stroke-dashoffset: -35; }
+  100% { stroke-dasharray: 90,150; stroke-dashoffset: -124; }
+}
+
+/* ── RF Spinner: dots ── */
+@keyframes rf-dot-pulse {
+  0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
+  40%           { transform: scale(1);   opacity: 1;   }
+}
+
+/* ── RF Spinner: bar ── */
+@keyframes rf-bar-load {
+  0%   { width: 0%;   margin-left: 0; }
+  50%  { width: 70%; }
+  100% { width: 20%;  margin-left: 80%; }
+}
+
+/* ── RF Toast: entrada ── */
+@keyframes rf-toast-in {
+  from { opacity: 0; transform: translateX(20px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+/* ── RF Toast: timer countdown ── */
+@keyframes rf-toast-timer {
+  from { width: 100%; }
+  to   { width: 0%; }
+}
+
+/* ── RF Page loader: orbit planet ── */
+@keyframes rf-orbit-planet {
+  from { transform: rotate(0deg) translateX(19px) rotate(0deg); }
+  to   { transform: rotate(360deg) translateX(19px) rotate(-360deg); }
+}
+
+/* ── Utility classes ── */
+.rf-spin     { animation: rf-spin 1s linear infinite; }
+.rf-spin-ccw { animation: rf-spin-ccw 0.7s linear infinite; }
+.rf-spin-dash {
+  fill: none;
+  stroke-linecap: round;
+  animation: rf-spin-dash 1.5s ease-in-out infinite, rf-spin 2s linear infinite;
+  transform-origin: center;
+}
+
+.rf-sk {
+  background: var(--rf-bg-elevated);
+  background-image: linear-gradient(
+    90deg,
+    var(--rf-bg-elevated) 0%,
+    var(--rf-sk-shine, rgba(255,255,255,0.06)) 50%,
+    var(--rf-bg-elevated) 100%
+  );
+  background-size: 800px 100%;
+  animation: rf-shimmer 1.6s infinite linear;
+  border-radius: 6px;
+}
+:root { --rf-sk-shine: rgba(0,0,0,0.04); }
+.dark { --rf-sk-shine: rgba(255,255,255,0.06); }
+
 /* ── RitualFlow Design System — Light mode (padrão) ── */
 :root {
   /* Backgrounds */

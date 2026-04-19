@@ -744,9 +744,9 @@ export function AppSidebar() {
         <div className="rf-sb-user">
           <Tooltip>
             <TooltipTrigger asChild>
-              <button
+              <Link
+                href="/cockpit/perfil"
                 className="rf-user-btn"
-                onClick={() => signOut({ callbackUrl: "/auth" })}
               >
                 <div className="rf-user-avatar">
                   {userInitials}
@@ -763,11 +763,11 @@ export function AppSidebar() {
                 <span className={cn("rf-user-menu", collapsed && "rf-hidden-label")}>
                   <IcDotsV />
                 </span>
-              </button>
+              </Link>
             </TooltipTrigger>
             {collapsed && (
               <TooltipContent side="right" sideOffset={8}>
-                {session?.user?.name ?? "Sair"}
+                {session?.user?.name ?? "Perfil"}
               </TooltipContent>
             )}
           </Tooltip>
