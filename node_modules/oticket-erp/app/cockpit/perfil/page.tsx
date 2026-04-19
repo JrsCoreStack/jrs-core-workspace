@@ -400,7 +400,7 @@ export default function PerfilPage() {
               iconClass="bg-chart-2/10 text-chart-2"
               label="Integrações"
               sub="Google Calendar, Slack"
-              href="#"
+              href="/cockpit/integracoes"
             />
             <RowLink
               icon={<DollarSign className="h-4 w-4" />}

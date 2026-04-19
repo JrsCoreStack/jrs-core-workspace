@@ -681,10 +681,10 @@ export function AppSidebar() {
             <div className={cn("rf-sb-section-label", collapsed && "rf-hidden-label")}>
               Sistema
             </div>
-            <SistemaItem
+            <NavItem
               title="Integrações"
+              url="/cockpit/integracoes"
               Icon={IcIntegracoes}
-              badge="Novo"
               collapsed={collapsed}
             />
             <SistemaItem
