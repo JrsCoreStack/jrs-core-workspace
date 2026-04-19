@@ -1,1003 +1,1074 @@
 "use client"
 
-import * as React from "react"
- import { Header } from "@/components/ui/header"
-import { Button } from "@/components/ui/button"
-import { CreateCalendarExceptionDialog } from "@/components/cockpit/dialogs/create-calendar-exception-dialog"
-import { cn } from "@/lib/utils"
-import { COCKPIT_MAIN_CLASS } from "@/lib/cockpit/cockpit-page-shell"
+import { useEffect, useMemo, useState, useCallback } from "react"
+import { SidebarTrigger } from "@/components/ui/sidebar"
 import api from "@/utils/api"
-import { COCKPIT_AREAS } from "@/lib/cockpit/constants"
+import { COCKPIT_AREAS, normalizeAreaSlug } from "@/lib/cockpit/constants"
 import Link from "next/link"
-import { ChevronLeft, ChevronRight, Download, Plus } from "lucide-react"
-import { useEffect, useMemo, useState } from "react"
 
+/* ─── AREA COLOR SYSTEM ─── */
+const CAL_AREA_COLORS: Record<string, string> = {
+  COMMERCIAL: "#7b61ff",
+  FINANCIAL:  "#f97316",
+  OPERATIONAL:"#00d4ff",
+  TECHNOLOGY: "#00d4ff",
+  STRATEGIC:  "#f59e0b",
+  MARKETING:  "#10b981",
+  PLAY:       "#22c55e",
+}
+const CAL_AREA_LABELS: Record<string, string> = {
+  COMMERCIAL: "Comercial",
+  FINANCIAL:  "Financeiro",
+  OPERATIONAL:"Operações",
+  TECHNOLOGY: "Tecnologia",
+  STRATEGIC:  "Sócios",
+  MARKETING:  "Marketing",
+  PLAY:       "Play",
+}
+const FREQ_LABELS: Record<string, string> = {
+  daily:"Daily", weekly:"Semanal", biweekly:"Quinzenal", monthly:"Mensal",
+  "diário":"Daily","semanal":"Semanal","quinzenal":"Quinzenal","mensal":"Mensal",
+}
+function calAreaColor(area: string): string {
+  return CAL_AREA_COLORS[(area ?? "").toUpperCase()] ?? "#7b61ff"
+}
+function calAreaLabel(area: string): string {
+  return CAL_AREA_LABELS[(area ?? "").toUpperCase()] ?? area ?? "—"
+}
+function calFreqLabel(freq: string): string {
+  return FREQ_LABELS[(freq ?? "").toLowerCase()] ?? freq ?? "—"
+}
+function hexToRgba(hex: string, alpha: number): string {
+  const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16)
+  return `rgba(${r},${g},${b},${alpha})`
+}
+
+/* ─── TYPES ─── */
+type CalendarStatus = "done" | "scheduled" | "today" | "not_tracked" | "cancelled"
+type CalendarEvent = {
+  id: string
+  date: string
+  time: string
+  title: string
+  area: string
+  frequency: string
+  ownerName: string
+  participantCount: number
+  status: CalendarStatus
+  whenLabel: string
+  ritualId?: string
+  meetingId?: string
+  blockedNote?: string
+}
+
+/* ─── UTILITY FUNCTIONS ─── */
+function iso(d: Date): string { return d.toISOString().slice(0,10) }
+function sameDay(a: Date, b: Date): boolean {
+  return a.getFullYear()===b.getFullYear()&&a.getMonth()===b.getMonth()&&a.getDate()===b.getDate()
+}
+function capitalize(s: string): string { return s.charAt(0).toUpperCase()+s.slice(1) }
+function addMonths(d: Date, delta: number): Date {
+  return new Date(d.getFullYear(), d.getMonth()+delta, Math.min(d.getDate(),28), 12, 0, 0)
+}
+function addDays(d: Date, delta: number): Date {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate()+delta, 12, 0, 0)
+}
+function getWeekDays(d: Date): Date[] {
+  const dow = d.getDay()
+  const sun = new Date(d.getFullYear(), d.getMonth(), d.getDate()-dow, 12, 0, 0)
+  return Array.from({length:7},(_,i)=>{ const x=new Date(sun); x.setDate(sun.getDate()+i); return x })
+}
+function buildMonthGrid(monthStart: Date): {days: Date[]} {
+  const first = new Date(monthStart.getFullYear(), monthStart.getMonth(), 1)
+  const start = new Date(first); start.setDate(first.getDate()-first.getDay())
+  const days: Date[] = []
+  for(let i=0;i<42;i++){ const d=new Date(start); d.setDate(start.getDate()+i); days.push(d) }
+  return {days}
+}
+function dayLabelRelative(d: Date): string {
+  const today = new Date(); today.setHours(12,0,0,0)
+  const t = new Date(d); t.setHours(12,0,0,0)
+  const diff = Math.round((t.getTime()-today.getTime())/(86400000))
+  if(diff===0) return "Hoje"
+  if(diff===1) return "Amanhã"
+  if(diff===-1) return "Ontem"
+  return d.toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit"})
+}
+function parseLocalDT(date: string, time: string): Date {
+  const [y,m,d] = date.split("-").map(Number)
+  const [h,mm] = (time||"00:00").split(":").map(Number)
+  return new Date(y, m-1, d, h, mm)
+}
+function isLive(e: CalendarEvent, now: Date): boolean {
+  if(e.status!=="today") return false
+  return now.getTime()>=parseLocalDT(e.date,e.time).getTime()
+}
+
+const DAY_ABBR = ["DOM","SEG","TER","QUA","QUI","SEX","SÁB"]
+const WEEK_TIMES = ["08:00","09:00","10:00","10:30","11:00","12:00","13:00","14:00","15:00","16:00","17:00","18:00"]
+
+/* ─── BUILD EVENTS ─── */
+function buildEventsForDateRange(
+  days: Date[],
+  rituals: Record<string,unknown>[],
+  meetings: Record<string,unknown>[]
+): Map<string, CalendarEvent[]> {
+  const map = new Map<string, CalendarEvent[]>()
+  const add = (e: CalendarEvent) => {
+    const list = map.get(e.date)??[]
+    if(list.some(x=>x.id===e.id)) return
+    list.push(e)
+    list.sort((a,b)=>a.time<b.time?-1:1)
+    map.set(e.date,list)
+  }
+  const isBusinessDay = (d:Date)=>d.getDay()>=1&&d.getDay()<=5
+  function ritualMatchesDay(r: Record<string,unknown>, d: Date): boolean {
+    const freq = ((r.freq as string)??(r.frequency as string)??"").toLowerCase()
+    const schedule = ((r.schedule as string)??"").toLowerCase()
+    const dow = d.getDay()
+    if(freq==="daily"||freq==="diário") return isBusinessDay(d)
+    if(freq==="weekly"||freq==="semanal") {
+      if(schedule.includes("seg")||schedule.includes("segunda")) return dow===1
+      if(schedule.includes("ter")||schedule.includes("terça")) return dow===2
+      if(schedule.includes("qua")||schedule.includes("quarta")) return dow===3
+      if(schedule.includes("qui")||schedule.includes("quinta")) return dow===4
+      if(schedule.includes("sex")||schedule.includes("sexta")) return dow===5
+      return dow===1
+    }
+    if(freq==="biweekly"||freq==="quinzenal") return Math.floor(d.getDate()/7)%2===0&&dow===3
+    if(freq==="monthly"||freq==="mensal") return d.getDate()<=7&&dow===1
+    return false
+  }
+  for(const r of rituals) {
+    if((r.is_active as boolean)===false) continue
+    const name = (r.name as string)??"Ritual"
+    const schedStr = (r.schedule as string)??""
+    const timeMatch = schedStr.match(/(\d{2}:\d{2})/)
+    const time = timeMatch?timeMatch[1]:"09:00"
+    const freq = ((r.freq as string)??(r.frequency as string)??"")
+    const area = String(normalizeAreaSlug((r.area as string)??"")||"COMMERCIAL").toUpperCase()
+    const owner = (r.owner_name as string)??(r.responsible as string)??""
+    const rId = String(r.id??"")
+    for(const d of days) {
+      if(!ritualMatchesDay(r,d)) continue
+      const date = iso(d)
+      add({
+        id:`ritual-${rId}-${date}`, date, time, title:name,
+        area, frequency:freq, ownerName:owner, participantCount:0,
+        status:"scheduled", whenLabel:`${dayLabelRelative(d)} · ${time}`,
+        ritualId:rId,
+      })
+    }
+  }
+  for(const m of meetings) {
+    const ritual = rituals.find(r=>r.id===m.ritual_id)
+    const title = (ritual?.name as string)??"Ritual"
+    const schedStr = (ritual?.schedule as string)??""
+    const timeMatch = schedStr.match(/(\d{2}:\d{2})/)
+    const time = timeMatch?timeMatch[1]:"09:00"
+    const freq = ((ritual?.freq as string)??(ritual?.frequency as string)??"")
+    const area = String(normalizeAreaSlug((ritual?.area as string)??"")||"COMMERCIAL").toUpperCase()
+    const owner = (ritual?.owner_name as string)??""
+    const status: CalendarStatus =
+      m.state==="done"?"done":m.state==="cancelled"?"cancelled":
+      m.state==="not_tracked"?"not_tracked":"scheduled"
+    const occurredRaw = (m.occurred_at as string)??(m.date as string)??""
+    const date = occurredRaw.slice(0,10)
+    if(!date) continue
+    const rId = String(m.ritual_id??"")
+    const existing = map.get(date)??[]
+    const filtered = existing.filter(e=>e.id!==`ritual-${rId}-${date}`)
+    filtered.push({
+      id:`meeting-${m.id}`, date, time, title, area, frequency:freq,
+      ownerName:owner, participantCount:0, status,
+      whenLabel:`${date.split("-").reverse().slice(0,2).join("/")} · ${time}`,
+      ritualId:rId, meetingId:String(m.id??""),
+    })
+    filtered.sort((a,b)=>a.time<b.time?-1:1)
+    map.set(date, filtered)
+  }
+  const today = new Date().toISOString().slice(0,10)
+  const todayList = map.get(today)
+  if(todayList) {
+    map.set(today, todayList.map(e=>({
+      ...e,
+      status: e.status==="done"||e.status==="not_tracked"||e.status==="cancelled"?e.status:"today",
+    })))
+  }
+  return map
+}
+
+function collectUpcoming(map: Map<string,CalendarEvent[]>, start: Date, end: Date) {
+  const out: CalendarEvent[] = []
+  for(const [date,list] of map.entries()) {
+    const d = new Date(date+"T12:00:00")
+    if(d>=start&&d<=end) out.push(...list)
+  }
+  out.sort((a,b)=>a.date===b.date?(a.time<b.time?-1:1):a.date<b.date?-1:1)
+  return out
+}
+
+/* ─── MAIN PAGE ─── */
 export default function CockpitCalendarioPage() {
-  // Mantém demo igual à imagem (março/2026 com dia 27 destacado)
-  const [cursorDate, setCursorDate] = useState(() => new Date())
-  const [view, setView] = useState<"month" | "week" | "day">("month")
-  const [showExcecaoModal, setShowExcecaoModal] = useState(false)
-
+  const [cursorDate, setCursorDate] = useState(()=>new Date())
+  const [view, setView] = useState<"month"|"week"|"day"|"missed">("month")
   const [loading, setLoading] = useState(true)
-  const [rituals, setRituals] = useState<any[]>([])
-  const [meetings, setMeetings] = useState<any[]>([])
+  const [rituals, setRituals] = useState<Record<string,unknown>[]>([])
+  const [meetings, setMeetings] = useState<Record<string,unknown>[]>([])
   const [areaFilter, setAreaFilter] = useState<string>("all")
+  const [now, setNow] = useState(()=>new Date())
+  const [selectedEvent, setSelectedEvent] = useState<CalendarEvent|null>(null)
+  const [liveEvent, setLiveEvent] = useState<CalendarEvent|null>(null)
 
-  /** Atualiza periodicamente para badges (ex.: "Em breve" → após o horário) e "hoje" na UI. */
-  const [now, setNow] = useState(() => new Date())
-  useEffect(() => {
-    const id = window.setInterval(() => setNow(new Date()), 30_000)
-    return () => window.clearInterval(id)
-  }, [])
+  useEffect(()=>{
+    const id = window.setInterval(()=>setNow(new Date()), 30_000)
+    return ()=>window.clearInterval(id)
+  },[])
 
-  useEffect(() => {
+  useEffect(()=>{
     let alive = true
-    ;(async () => {
+    ;(async()=>{
       setLoading(true)
       try {
-        const areaParams = areaFilter !== "all" ? { area: areaFilter } : {}
-        const [rRes, mRes] = await Promise.all([
-          api.get("/cockpit/rituals", { params: areaParams }),
-          api.get("/cockpit/meetings", { params: areaParams }),
+        const params = areaFilter!=="all"?{area:areaFilter}:{}
+        const [rRes,mRes] = await Promise.all([
+          api.get("/cockpit/rituals",{params}),
+          api.get("/cockpit/meetings",{params}),
         ])
-        if (!alive) return
-        setRituals(rRes.data ?? [])
-        setMeetings(mRes.data ?? [])
-      } finally {
-        if (alive) setLoading(false)
-      }
+        if(!alive) return
+        setRituals(rRes.data??[])
+        setMeetings(mRes.data??[])
+      } finally { if(alive) setLoading(false) }
     })()
-    return () => {
-      alive = false
-    }
-  }, [areaFilter])
+    return ()=>{ alive=false }
+  },[areaFilter])
 
-  const monthStart = useMemo(() => new Date(cursorDate.getFullYear(), cursorDate.getMonth(), 1), [cursorDate])
-  const monthLabel = useMemo(
-    () => monthStart.toLocaleDateString("pt-BR", { month: "long", year: "numeric" }),
-    [monthStart]
-  )
+  const monthStart = useMemo(()=>new Date(cursorDate.getFullYear(),cursorDate.getMonth(),1),[cursorDate])
+  const grid = useMemo(()=>buildMonthGrid(monthStart),[monthStart])
+  const weekDays = useMemo(()=>getWeekDays(cursorDate),[cursorDate])
 
-  const grid = useMemo(() => buildMonthGrid(monthStart), [monthStart])
-
-  // Dias visíveis conforme a view selecionada
-  const weekDays = useMemo(() => getWeekDays(cursorDate), [cursorDate])
-  const visibleDays = useMemo(() => {
-    if (view === "week") return weekDays
-    if (view === "day") return [new Date(cursorDate.getFullYear(), cursorDate.getMonth(), cursorDate.getDate(), 12, 0, 0)]
+  const visibleDays = useMemo(()=>{
+    if(view==="week") return weekDays
+    if(view==="day") return [new Date(cursorDate.getFullYear(),cursorDate.getMonth(),cursorDate.getDate(),12,0,0)]
     return grid.days
-  }, [view, cursorDate, weekDays, grid.days])
+  },[view,cursorDate,weekDays,grid.days])
 
-  const eventsByDay = useMemo(
-    () => buildEventsForDateRange(visibleDays, rituals, meetings),
-    [visibleDays, rituals, meetings]
-  )
+  const eventsByDay = useMemo(()=>buildEventsForDateRange(visibleDays,rituals,meetings),[visibleDays,rituals,meetings])
 
-  // Label dinâmico na toolbar conforme a view
-  const viewLabel = useMemo(() => {
-    if (view === "week") {
-      const s = weekDays[0], e = weekDays[6]
-      const sm = capitalize(s.toLocaleDateString("pt-BR", { month: "short" }))
-      const em = capitalize(e.toLocaleDateString("pt-BR", { month: "short", year: "numeric" }))
-      return s.getMonth() === e.getMonth()
-        ? `${s.getDate()} – ${e.getDate()} de ${em}`
-        : `${s.getDate()} ${sm} – ${e.getDate()} ${em}`
+  const viewLabel = useMemo(()=>{
+    if(view==="week") {
+      const s=weekDays[0],e=weekDays[6]
+      return s.getMonth()===e.getMonth()
+        ?`${s.getDate()} – ${e.getDate()} ${capitalize(s.toLocaleDateString("pt-BR",{month:"short"}))}`
+        :`${s.getDate()} – ${e.getDate()} ${capitalize(e.toLocaleDateString("pt-BR",{month:"short",year:"numeric"}))}`
     }
-    if (view === "day") {
-      return capitalize(cursorDate.toLocaleDateString("pt-BR", { weekday: "short", day: "numeric", month: "long", year: "numeric" }))
-    }
-    return capitalize(monthLabel)
-  }, [view, cursorDate, weekDays, monthLabel])
+    if(view==="day"||view==="missed")
+      return capitalize(cursorDate.toLocaleDateString("pt-BR",{weekday:"short",day:"numeric",month:"short"}))
+    return capitalize(monthStart.toLocaleDateString("pt-BR",{month:"long",year:"numeric"}))
+  },[view,cursorDate,weekDays,monthStart])
+
+  const next48h = useMemo(()=>{
+    const me = buildEventsForDateRange(grid.days,rituals,meetings)
+    const s = new Date(now); s.setHours(0,0,0,0)
+    const e = new Date(s); e.setTime(e.getTime()+48*3600000)
+    return collectUpcoming(me,s,e).slice(0,6)
+  },[grid.days,rituals,meetings,now])
+
+  const missedEvents = useMemo(()=>{
+    const me = buildEventsForDateRange(grid.days,rituals,meetings)
+    const out: CalendarEvent[] = []
+    for(const day of grid.days) out.push(...(me.get(iso(day))??[]).filter(e=>e.status==="not_tracked"))
+    return out
+  },[grid.days,rituals,meetings])
 
   function handlePrev() {
-    if (view === "month") setCursorDate(addMonths(cursorDate, -1))
-    else if (view === "week") setCursorDate(addDays(cursorDate, -7))
-    else setCursorDate(addDays(cursorDate, -1))
+    if(view==="month") setCursorDate(addMonths(cursorDate,-1))
+    else if(view==="week") setCursorDate(addDays(cursorDate,-7))
+    else setCursorDate(addDays(cursorDate,-1))
   }
-
   function handleNext() {
-    if (view === "month") setCursorDate(addMonths(cursorDate, 1))
-    else if (view === "week") setCursorDate(addDays(cursorDate, 7))
-    else setCursorDate(addDays(cursorDate, 1))
+    if(view==="month") setCursorDate(addMonths(cursorDate,1))
+    else if(view==="week") setCursorDate(addDays(cursorDate,7))
+    else setCursorDate(addDays(cursorDate,1))
   }
 
-  const next48h = useMemo(() => {
-    // Para o painel lateral sempre usar o mês completo como base
-    const monthEvents = buildEventsForDateRange(grid.days, rituals, meetings)
-    const start = new Date(now)
-    start.setHours(0, 0, 0, 0)
-    const end = new Date(start)
-    end.setHours(end.getHours() + 48)
-    return collectUpcoming(monthEvents, start, end).slice(0, 5)
-  }, [grid.days, rituals, meetings, now])
-
-  const notTracked = useMemo(() => {
-    const monthEvents = buildEventsForDateRange(grid.days, rituals, meetings)
-    const out: CalendarEvent[] = []
-    for (const day of grid.days) {
-      const list = monthEvents.get(iso(day)) ?? []
-      out.push(...list.filter((e) => e.status === "not_tracked"))
-    }
-    return out.slice(0, 6)
-  }, [grid.days, rituals, meetings])
-
-  function handleExportar() {
-    const allEvents: CalendarEvent[] = []
-    for (const day of visibleDays) {
-      const list = eventsByDay.get(iso(day)) ?? []
-      allEvents.push(...list)
-    }
-    const header = ["Data", "Horário", "Título", "Status"]
-    const statusLabels: Record<string, string> = {
-      done: "Realizado", scheduled: "Agendado", today: "Hoje",
-      not_tracked: "Não rastreado", cancelled: "Cancelado",
-    }
-    const rows = allEvents.map((e) => [
-      e.date.split("-").reverse().join("/"), e.time, e.title,
-      statusLabels[e.status] ?? e.status,
-    ])
-    const csv = [header, ...rows].map((r) => r.map((v) => `"${v}"`).join(";")).join("\n")
-    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement("a")
-    a.href = url
-    a.download = `calendario-${view}-${iso(cursorDate)}.csv`
-    a.click()
-    URL.revokeObjectURL(url)
+  function openEvent(e: CalendarEvent) {
+    if(isLive(e,now)) setLiveEvent(e)
+    else setSelectedEvent(e)
   }
+
+  const areaChips = [
+    {slug:"all",label:"Todos",color:"var(--rf-text-secondary,#7e8a9e)"},
+    ...COCKPIT_AREAS.map(a=>({slug:a.slug,label:a.name,color:calAreaColor(a.slug)})),
+  ]
 
   return (
     <>
-      <Header
-        title="Calendário de Rituais"
-        description="Agenda de todos os rituais da empresa — março 2026"
-        actions={
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" className="gap-2 bg-transparent" onClick={() => setShowExcecaoModal(true)}>
-              <Plus className="h-4 w-4" />
-              Criar Exceção
-            </Button>
-            <Button variant="outline" size="sm" className="gap-2 bg-transparent" asChild>
-              <a
-                href={
-                  areaFilter !== "all"
-                    ? `/api-proxy/cockpit/rituals/export/ics?area=${encodeURIComponent(areaFilter)}`
-                    : "/api-proxy/cockpit/rituals/export/ics"
-                }
-                download="cockpit-rituais.ics"
-              >
-                <Download className="h-4 w-4" />
-                iCal (.ics)
-              </a>
-            </Button>
-            <Button variant="default" size="sm" className="gap-2" onClick={handleExportar}>
-              <Download className="h-4 w-4" />
-              CSV
-            </Button>
-          </div>
+      <style>{`
+        .cal-page { display:flex;flex-direction:column;height:100%;overflow:hidden; }
+
+        /* TOPBAR */
+        .cal-topbar {
+          background:var(--rf-bg-surface);
+          border-bottom:1px solid var(--rf-border-subtle);
+          padding:14px 20px;
+          flex-shrink:0;
         }
-      />
+        .cal-top-row {
+          display:flex;align-items:center;justify-content:space-between;
+          gap:12px;margin-bottom:12px;flex-wrap:wrap;
+        }
+        .cal-title-group { display:flex;align-items:center;gap:10px; }
+        .cal-page-title {
+          font-family:var(--font-display,'Syne',sans-serif);
+          font-size:20px;font-weight:800;color:var(--rf-text-primary);letter-spacing:-0.3px;
+        }
+        .cal-nav { display:flex;align-items:center;gap:5px; }
+        .cal-nav-btn {
+          width:28px;height:28px;border-radius:8px;
+          background:var(--rf-bg-elevated);border:1px solid var(--rf-border-default);
+          display:grid;place-items:center;cursor:pointer;color:var(--rf-text-secondary);
+          transition:all 0.18s;
+        }
+        .cal-nav-btn:hover { background:var(--rf-bg-hover);color:var(--rf-text-primary); }
+        .cal-period {
+          font-family:var(--font-display,'Syne',sans-serif);
+          font-size:14px;font-weight:700;color:var(--rf-text-primary);
+          min-width:140px;text-align:center;
+        }
+        .cal-today-btn {
+          padding:5px 12px;border-radius:8px;
+          background:var(--rf-bg-elevated);border:1px solid var(--rf-border-default);
+          font-size:12px;font-weight:600;color:var(--rf-text-secondary);cursor:pointer;transition:all 0.18s;
+        }
+        .cal-today-btn:hover { color:var(--rf-accent,#7b61ff);border-color:rgba(123,97,255,0.28); }
 
-      <main className={COCKPIT_MAIN_CLASS}>
-        {/* Toolbar */}
-        <div className="rounded-xl border border-border bg-card p-3 sm:p-4">
-          <div className="flex min-w-0 flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex min-w-0 flex-wrap items-center gap-2">
-              <div className="flex items-center gap-1.5">
-                <span className="text-[11px] font-medium text-muted-foreground">Área</span>
-                <select
-                  value={areaFilter}
-                  onChange={(e) => setAreaFilter(e.target.value)}
-                  className="h-8 rounded-md border border-border bg-background px-2 text-xs text-foreground outline-none focus:ring-2 focus:ring-ring"
-                >
-                  <option value="all">Todas</option>
-                  {COCKPIT_AREAS.map((a) => (
-                    <option key={a.slug} value={a.slug}>
-                      {a.name}
-                    </option>
-                  ))}
-                </select>
+        /* VIEW TABS */
+        .view-tabs {
+          display:flex;gap:2px;
+          background:var(--rf-bg-overlay);border:1px solid var(--rf-border-subtle);
+          border-radius:10px;padding:3px;
+        }
+        .view-tab {
+          padding:5px 12px;border-radius:8px;font-size:12px;font-weight:600;
+          color:var(--rf-text-muted);cursor:pointer;transition:all 0.18s;white-space:nowrap;
+        }
+        .view-tab.active {
+          background:var(--rf-bg-surface);color:var(--rf-text-primary);
+          box-shadow:0 1px 4px rgba(0,0,0,0.1);
+        }
+
+        /* BTN PRIMARY */
+        .cal-btn-primary {
+          display:inline-flex;align-items:center;gap:6px;padding:7px 14px;
+          border-radius:10px;background:var(--rf-accent,#7b61ff);color:#fff;
+          font-size:12px;font-weight:600;cursor:pointer;border:none;
+          box-shadow:0 2px 8px rgba(123,97,255,0.35);transition:all 0.18s;white-space:nowrap;
+        }
+        .cal-btn-primary:hover { background:var(--rf-accent-hover,#9178ff); }
+        .cal-btn-ghost {
+          display:inline-flex;align-items:center;gap:6px;padding:7px 14px;
+          border-radius:10px;background:var(--rf-bg-elevated);color:var(--rf-text-secondary);
+          border:1px solid var(--rf-border-default);font-size:12px;font-weight:600;
+          cursor:pointer;transition:all 0.18s;white-space:nowrap;
+        }
+        .cal-btn-ghost:hover { border-color:var(--rf-border-strong);color:var(--rf-text-primary); }
+
+        /* FILTER CHIPS */
+        .cal-filter-row {
+          display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;align-items:center;
+        }
+        .cal-filter-row::-webkit-scrollbar { display:none; }
+        .fchip {
+          flex-shrink:0;padding:5px 11px;border-radius:9999px;
+          border:1px solid var(--rf-border-default);background:var(--rf-bg-elevated);
+          font-size:11px;font-weight:600;color:var(--rf-text-secondary);cursor:pointer;
+          transition:all 0.18s;white-space:nowrap;display:flex;align-items:center;gap:5px;
+        }
+        .fchip.active {
+          background:rgba(123,97,255,0.12);color:var(--rf-accent,#7b61ff);
+          border-color:rgba(123,97,255,0.28);
+        }
+        .fchip-dot { width:7px;height:7px;border-radius:50%;flex-shrink:0; }
+
+        /* NEXT 48H BANNER */
+        .next48-banner {
+          background:var(--rf-bg-surface);border-bottom:1px solid var(--rf-border-subtle);
+          padding:12px 20px;flex-shrink:0;
+        }
+        .next48-title {
+          font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;
+          color:var(--rf-text-muted);margin-bottom:8px;display:flex;align-items:center;gap:6px;
+        }
+        .next48-scroll {
+          display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;padding-bottom:2px;
+        }
+        .next48-scroll::-webkit-scrollbar { display:none; }
+        .next48-card {
+          flex-shrink:0;width:172px;
+          background:var(--rf-bg-elevated);border:1px solid var(--rf-border-default);
+          border-radius:14px;padding:11px 12px;cursor:pointer;transition:all 0.18s;
+          position:relative;overflow:hidden;
+        }
+        .next48-card:hover { border-color:var(--rf-border-strong);transform:translateY(-1px);box-shadow:0 4px 16px rgba(0,0,0,0.12); }
+        .next48-card::before { content:'';position:absolute;top:0;left:0;right:0;height:3px; }
+        .next48-card.live { background:rgba(123,97,255,0.06);border-color:rgba(123,97,255,0.25); }
+        .next48-time {
+          font-family:var(--font-mono,'DM Mono',monospace);font-size:10px;
+          color:var(--rf-text-muted);margin-bottom:4px;display:flex;align-items:center;gap:4px;
+        }
+        .next48-name { font-size:12px;font-weight:600;color:var(--rf-text-primary);line-height:1.3;margin-bottom:4px; }
+        .next48-meta { font-size:10px;color:var(--rf-text-secondary); }
+        .live-dot {
+          width:6px;height:6px;border-radius:50%;background:#22c55e;
+          animation:livePulse 1.4s infinite;display:inline-block;flex-shrink:0;
+        }
+        @keyframes livePulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(1.3)}}
+
+        /* MISSED BANNER */
+        .missed-banner {
+          background:rgba(239,68,68,0.06);border-bottom:1px solid rgba(239,68,68,0.18);
+          padding:9px 20px;display:flex;align-items:center;gap:8px;flex-shrink:0;
+          cursor:pointer;transition:background 0.18s;
+        }
+        .missed-banner:hover { background:rgba(239,68,68,0.10); }
+
+        /* CONTENT AREA */
+        .cal-content { flex:1;overflow-y:auto;padding:16px 20px 24px; }
+
+        /* ─── MONTHLY VIEW ─── */
+        .month-grid-hd {
+          display:grid;grid-template-columns:repeat(7,1fr);gap:1px;
+          background:var(--rf-border-subtle);border-radius:12px 12px 0 0;overflow:hidden;margin-bottom:1px;
+        }
+        .month-day-hd {
+          background:var(--rf-bg-surface);padding:7px 0;text-align:center;
+          font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:var(--rf-text-muted);
+        }
+        .month-grid {
+          display:grid;grid-template-columns:repeat(7,1fr);gap:1px;
+          background:var(--rf-border-subtle);border-radius:0 0 12px 12px;overflow:hidden;
+        }
+        .month-cell {
+          background:var(--rf-bg-surface);min-height:90px;padding:8px;
+          cursor:pointer;transition:background 0.15s;
+        }
+        .month-cell:hover { background:var(--rf-bg-hover); }
+        .month-cell.is-today { background:rgba(123,97,255,0.05); }
+        .month-cell.other-month { opacity:0.5; }
+        .mc-date-num {
+          font-size:12px;font-weight:600;color:var(--rf-text-secondary);
+          width:22px;height:22px;display:flex;align-items:center;justify-content:center;
+          border-radius:50%;margin-bottom:5px;
+        }
+        .mc-date-num.today-circle { background:var(--rf-accent,#7b61ff);color:#fff;font-weight:700; }
+        .mc-event {
+          border-radius:4px;padding:2px 5px;margin-bottom:2px;
+          font-size:10px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+          cursor:pointer;transition:opacity 0.15s;
+        }
+        .mc-event:hover { opacity:0.8; }
+        .mc-more { font-size:10px;color:var(--rf-text-muted);font-weight:500;padding:1px 3px;cursor:pointer; }
+
+        /* ─── WEEKLY VIEW ─── */
+        .week-grid {
+          border-radius:12px;overflow:hidden;border:1px solid var(--rf-border-subtle);
+        }
+        .week-header {
+          display:grid;grid-template-columns:52px repeat(7,1fr);
+          background:var(--rf-bg-surface);border-bottom:1px solid var(--rf-border-subtle);
+        }
+        .week-hd-empty { border-right:1px solid var(--rf-border-subtle); }
+        .week-day-hd {
+          padding:10px 8px;text-align:center;
+          border-right:1px solid var(--rf-border-subtle);
+        }
+        .week-day-hd:last-child { border-right:none; }
+        .wdh-name {
+          font-size:10px;font-weight:700;text-transform:uppercase;
+          letter-spacing:0.07em;color:var(--rf-text-muted);
+        }
+        .wdh-num {
+          font-size:18px;font-weight:800;color:var(--rf-text-secondary);
+          font-family:var(--font-display,'Syne',sans-serif);margin-top:2px;
+        }
+        .wdh-num.today-num { color:var(--rf-accent,#7b61ff); }
+        .week-body { display:flex;flex-direction:column; }
+        .week-row {
+          display:grid;grid-template-columns:52px repeat(7,1fr);
+          border-bottom:1px solid var(--rf-border-subtle);min-height:52px;
+        }
+        .week-row:last-child { border-bottom:none; }
+        .week-time {
+          padding:8px 6px;font-family:var(--font-mono,'DM Mono',monospace);
+          font-size:10px;color:var(--rf-text-muted);text-align:right;
+          border-right:1px solid var(--rf-border-subtle);
+          background:var(--rf-bg-surface);display:flex;align-items:flex-start;
+          justify-content:flex-end;
+        }
+        .week-slot {
+          border-right:1px solid var(--rf-border-subtle);padding:4px;
+          background:var(--rf-bg-base);transition:background 0.15s;
+        }
+        .week-slot:hover { background:var(--rf-bg-hover); }
+        .week-slot:last-child { border-right:none; }
+        .week-slot.today-col { background:rgba(123,97,255,0.04); }
+        .week-event {
+          border-radius:6px;padding:4px 7px;margin-bottom:2px;
+          cursor:pointer;transition:all 0.15s;position:relative;
+        }
+        .week-event:hover { filter:brightness(1.1);transform:translateX(1px); }
+        .we-time { font-size:9px;margin-bottom:1px;opacity:0.8;font-family:var(--font-mono,'DM Mono',monospace); }
+        .we-name { font-size:11px;font-weight:600;line-height:1.2; }
+        .we-freq { font-size:9px;opacity:0.7;margin-top:1px; }
+        .conflict-badge {
+          position:absolute;top:3px;right:3px;width:14px;height:14px;border-radius:50%;
+          background:#ef4444;display:grid;place-items:center;font-size:8px;color:#fff;font-weight:700;
+        }
+
+        /* ─── DAILY VIEW ─── */
+        .day-view { border-radius:12px;overflow:hidden;border:1px solid var(--rf-border-subtle); }
+        .day-header {
+          background:var(--rf-bg-surface);border-bottom:1px solid var(--rf-border-subtle);
+          padding:14px 20px;display:flex;align-items:center;justify-content:space-between;
+        }
+        .day-title-big {
+          font-family:var(--font-display,'Syne',sans-serif);
+          font-size:18px;font-weight:800;color:var(--rf-text-primary);
+        }
+        .day-subtitle { font-size:12px;color:var(--rf-text-secondary);margin-top:2px; }
+        .day-slot {
+          display:flex;gap:14px;padding:10px 16px;
+          border-bottom:1px solid var(--rf-border-subtle);min-height:48px;
+          background:var(--rf-bg-base);
+        }
+        .day-slot.now-row { background:rgba(123,97,255,0.04); }
+        .day-slot:last-child { border-bottom:none; }
+        .day-time {
+          font-family:var(--font-mono,'DM Mono',monospace);font-size:11px;
+          color:var(--rf-text-muted);min-width:40px;padding-top:3px;flex-shrink:0;
+        }
+        .day-slot.now-row .day-time { color:var(--rf-accent,#7b61ff);font-weight:500; }
+        .day-events { flex:1;display:flex;flex-direction:column;gap:6px; }
+        .day-event {
+          background:var(--rf-bg-surface);border:1px solid var(--rf-border-default);
+          border-radius:10px;padding:10px 12px;cursor:pointer;transition:all 0.18s;
+          position:relative;overflow:hidden;
+        }
+        .day-event:hover {
+          border-color:var(--rf-border-strong);
+          transform:translateX(2px);box-shadow:0 2px 8px rgba(0,0,0,0.08);
+        }
+        .day-event::before {
+          content:'';position:absolute;left:0;top:0;bottom:0;width:3px;
+        }
+        .day-event-name { font-size:13px;font-weight:600;color:var(--rf-text-primary); }
+        .day-event-meta {
+          font-size:11px;color:var(--rf-text-secondary);
+          display:flex;align-items:center;gap:10px;margin-top:3px;
+        }
+        .day-event-badges { display:flex;gap:4px;margin-top:6px;align-items:center; }
+        .cal-badge {
+          display:inline-flex;align-items:center;gap:4px;
+          font-size:10px;font-weight:600;padding:2px 7px;border-radius:9999px;
+        }
+        .day-event-avatars { display:flex;margin-top:6px; }
+        .d-avatar {
+          width:18px;height:18px;border-radius:50%;border:2px solid var(--rf-bg-surface);
+          display:grid;place-items:center;font-size:7px;font-weight:700;color:#fff;margin-right:-4px;
+        }
+        .now-indicator {
+          display:flex;align-items:center;gap:8px;padding:5px 16px;
+          background:linear-gradient(90deg,rgba(123,97,255,0.08),transparent);
+          border-left:3px solid var(--rf-accent,#7b61ff);
+        }
+        .now-line { flex:1;height:1px;background:var(--rf-accent,#7b61ff);opacity:0.3; }
+        .now-label {
+          font-family:var(--font-mono,'DM Mono',monospace);
+          font-size:10px;color:var(--rf-accent,#7b61ff);font-weight:500;
+        }
+        .empty-slot { font-size:11px;color:var(--rf-text-muted);padding:4px 0;font-style:italic; }
+
+        /* ─── LEGEND ─── */
+        .cal-legend {
+          display:flex;gap:12px;flex-wrap:wrap;margin-top:12px;padding:10px 12px;
+          background:var(--rf-bg-surface);border:1px solid var(--rf-border-subtle);
+          border-radius:10px;
+        }
+        .legend-item { display:flex;align-items:center;gap:5px;font-size:11px;color:var(--rf-text-secondary); }
+        .legend-swatch { width:10px;height:10px;border-radius:3px; }
+
+        /* ─── MODAL ─── */
+        .cal-modal-overlay {
+          position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:600;
+          display:flex;align-items:flex-end;justify-content:center;
+          padding:0 16px;backdrop-filter:blur(4px);
+        }
+        .cal-modal-sheet {
+          background:var(--rf-bg-surface);border:1px solid var(--rf-border-strong);
+          border-radius:20px 20px 0 0;width:100%;max-width:520px;max-height:88vh;
+          overflow-y:auto;box-shadow:0 -8px 40px rgba(0,0,0,0.3);
+          scrollbar-width:thin;scrollbar-color:var(--rf-border-strong) transparent;
+        }
+        .cal-modal-handle {
+          width:36px;height:4px;background:var(--rf-border-strong);
+          border-radius:2px;margin:12px auto 0;
+        }
+        .cal-modal-area-bar { height:3px;margin:10px 20px 0;border-radius:9999px; }
+        .cal-modal-topbar {
+          padding:14px 20px 12px;display:flex;align-items:flex-start;
+          justify-content:space-between;border-bottom:1px solid var(--rf-border-subtle);
+        }
+        .cal-modal-close {
+          width:28px;height:28px;border-radius:8px;
+          background:var(--rf-bg-elevated);border:1px solid var(--rf-border-subtle);
+          display:grid;place-items:center;cursor:pointer;color:var(--rf-text-muted);flex-shrink:0;
+          transition:all 0.18s;
+        }
+        .cal-modal-close:hover { background:var(--rf-bg-hover);color:var(--rf-text-primary); }
+        .cal-modal-title {
+          font-family:var(--font-display,'Syne',sans-serif);
+          font-size:17px;font-weight:700;color:var(--rf-text-primary);margin-bottom:4px;
+        }
+        .cal-modal-area-tag {
+          font-size:11px;font-weight:700;text-transform:uppercase;
+          letter-spacing:0.06em;color:var(--rf-text-muted);display:flex;align-items:center;gap:5px;
+        }
+        .cal-modal-body { padding:14px 20px;display:flex;flex-direction:column;gap:10px; }
+        .cal-modal-meta-grid { display:grid;grid-template-columns:1fr 1fr;gap:8px; }
+        .mmi {
+          background:var(--rf-bg-elevated);border:1px solid var(--rf-border-subtle);
+          border-radius:10px;padding:10px 12px;
+        }
+        .mmi-label {
+          font-size:10px;font-weight:700;text-transform:uppercase;
+          letter-spacing:0.07em;color:var(--rf-text-muted);margin-bottom:5px;
+        }
+        .mmi-value {
+          font-size:13px;font-weight:600;color:var(--rf-text-primary);
+          display:flex;align-items:center;gap:5px;
+        }
+        .cal-modal-section { background:var(--rf-bg-elevated);border:1px solid var(--rf-border-subtle);border-radius:10px;padding:10px 12px; }
+        .cal-modal-section-title {
+          font-size:10px;font-weight:700;text-transform:uppercase;
+          letter-spacing:0.07em;color:var(--rf-text-muted);margin-bottom:8px;
+        }
+        .cal-modal-footer {
+          padding:12px 20px;border-top:1px solid var(--rf-border-subtle);
+          display:flex;gap:8px;background:var(--rf-bg-surface);
+          position:sticky;bottom:0;
+        }
+        .cal-modal-btn-primary {
+          flex:1;padding:11px;background:var(--rf-accent,#7b61ff);color:#fff;border:none;
+          border-radius:10px;font-family:var(--font-body,'DM Sans',sans-serif);
+          font-size:13px;font-weight:600;cursor:pointer;
+          box-shadow:0 2px 8px rgba(123,97,255,0.3);transition:all 0.18s;
+        }
+        .cal-modal-btn-primary:hover { background:var(--rf-accent-hover,#9178ff); }
+        .cal-modal-btn-ghost {
+          padding:11px 16px;background:transparent;color:var(--rf-text-secondary);
+          border:1px solid var(--rf-border-default);border-radius:10px;
+          font-family:var(--font-body,'DM Sans',sans-serif);font-size:13px;
+          font-weight:500;cursor:pointer;transition:all 0.18s;
+        }
+        .cal-modal-btn-ghost:hover { border-color:var(--rf-border-strong);color:var(--rf-text-primary); }
+
+        /* LIVE MODAL */
+        .live-kpi-table { width:100%;border-collapse:collapse; }
+        .live-kpi-table th {
+          text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;
+          letter-spacing:0.06em;color:var(--rf-text-muted);padding:0 6px 6px;
+        }
+        .live-kpi-table td { font-size:12px;padding:5px 6px;color:var(--rf-text-primary); }
+        .live-kpi-table tr:not(:last-child) td { border-bottom:1px solid var(--rf-border-subtle); }
+        .live-participant-grid { display:flex;gap:10px;flex-wrap:wrap; }
+        .live-participant {
+          display:flex;align-items:center;gap:6px;font-size:11px;
+        }
+        .live-p-avatar {
+          width:28px;height:28px;border-radius:50%;display:grid;place-items:center;
+          font-size:9px;font-weight:700;color:#fff;flex-shrink:0;
+        }
+        .live-hist-item {
+          display:flex;align-items:center;justify-content:space-between;
+          padding:6px 0;border-bottom:1px solid var(--rf-border-subtle);font-size:12px;
+        }
+        .live-hist-item:last-child { border-bottom:none; }
+
+        /* MISSED VIEW */
+        .missed-alert {
+          background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.2);
+          border-radius:12px;padding:14px 16px;display:flex;gap:10px;margin-bottom:12px;
+        }
+        .missed-list-item {
+          background:var(--rf-bg-surface);border:1px solid var(--rf-border-default);
+          border-radius:12px;overflow:hidden;margin-bottom:8px;
+        }
+        .missed-item-inner {
+          padding:14px 16px;display:flex;align-items:flex-start;justify-content:space-between;
+          gap:12px;cursor:pointer;transition:background 0.15s;
+        }
+        .missed-item-inner:hover { background:var(--rf-bg-hover); }
+        .missed-item-left { display:flex;gap:10px;flex:1; }
+        .missed-item-bar { width:3px;border-radius:2px;flex-shrink:0;align-self:stretch; }
+        .missed-impact {
+          margin-top:8px;padding:8px 10px;
+          background:var(--rf-bg-elevated);border-radius:8px;
+          font-size:11px;color:var(--rf-text-secondary);
+        }
+      `}</style>
+
+      <div className="cal-page">
+        {/* TOPBAR */}
+        <div className="cal-topbar">
+          <div className="cal-top-row">
+            <div className="cal-title-group">
+              <SidebarTrigger style={{
+                width:34,height:34,borderRadius:8,
+                border:"1px solid var(--rf-border-default)",
+                background:"var(--rf-bg-elevated)",cursor:"pointer",
+                color:"var(--rf-text-secondary)",display:"grid",placeItems:"center",
+                flexShrink:0,
+              }}/>
+              <div className="cal-page-title">
+                {view==="missed"?"Não Realizadas":"Calendário"}
               </div>
-              {/* Navegação < label > */}
-              <div className="inline-flex items-center rounded-lg border border-border bg-card p-1">
-                <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={handlePrev}>
-                  <ChevronLeft className="h-4 w-4" />
-                </Button>
-                <div className="min-w-0 max-w-[min(100%,200px)] truncate px-2 text-center text-sm font-semibold text-foreground sm:max-w-none sm:min-w-[140px]">
-                  {viewLabel}
+              {view!=="missed" && (
+                <div className="cal-nav">
+                  <div className="cal-nav-btn" onClick={handlePrev}>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+                  </div>
+                  <div className="cal-period">{viewLabel}</div>
+                  <div className="cal-nav-btn" onClick={handleNext}>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+                  </div>
+                  <div className="cal-today-btn" onClick={()=>setCursorDate(new Date())}>Hoje</div>
                 </div>
-                <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={handleNext}>
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-              </div>
-
-              {/* Botões de view: Hoje | Semana | Mês */}
-              <div className="inline-flex rounded-lg border border-border bg-muted/30 p-0.5">
-                <Button
-                  type="button" size="sm"
-                  className={cn("h-8 px-3", view === "day"
-                    ? "bg-primary text-primary-foreground hover:bg-primary/90"
-                    : "bg-transparent text-muted-foreground shadow-none hover:bg-accent hover:text-accent-foreground")}
-                  onClick={() => { setView("day"); setCursorDate(new Date()) }}
-                >
-                  Hoje
-                </Button>
-                <Button
-                  type="button" size="sm"
-                  className={cn("h-8 px-3", view === "week"
-                    ? "bg-primary text-primary-foreground hover:bg-primary/90"
-                    : "bg-transparent text-muted-foreground shadow-none hover:bg-accent hover:text-accent-foreground")}
-                  onClick={() => setView("week")}
-                >
-                  Semana
-                </Button>
-                <Button
-                  type="button" size="sm"
-                  className={cn("h-8 px-3", view === "month"
-                    ? "bg-primary text-primary-foreground hover:bg-primary/90"
-                    : "bg-transparent text-muted-foreground shadow-none hover:bg-accent hover:text-accent-foreground")}
-                  onClick={() => setView("month")}
-                >
-                  Mês
-                </Button>
-              </div>
+              )}
+              {view==="missed" && (
+                <div style={{fontSize:12,color:"var(--rf-text-secondary)"}}>
+                  {missedEvents.length} reuniões perdidas nos últimos 30 dias
+                </div>
+              )}
             </div>
-
-            <Legend />
+            <div style={{display:"flex",gap:8,alignItems:"center"}}>
+              {view==="missed" ? (
+                <button className="cal-btn-ghost" onClick={()=>setView("month")}>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="15 18 9 12 15 6"/></svg>
+                  Voltar ao calendário
+                </button>
+              ) : (
+                <>
+                  <div className="view-tabs">
+                    {(["month","week","day"] as const).map(v=>(
+                      <div key={v} className={`view-tab${view===v?" active":""}`} onClick={()=>setView(v)}>
+                        {v==="month"?"Mensal":v==="week"?"Semanal":"Diário"}
+                      </div>
+                    ))}
+                  </div>
+                  <Link href="/cockpit/rituais/novo">
+                    <button className="cal-btn-primary">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                        <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+                      </svg>
+                      Novo Ritual
+                    </button>
+                  </Link>
+                </>
+              )}
+            </div>
           </div>
+
+          {view!=="missed" && (
+            <div className="cal-filter-row">
+              {areaChips.map(chip=>(
+                <div
+                  key={chip.slug}
+                  className={`fchip${areaFilter===chip.slug?" active":""}`}
+                  onClick={()=>setAreaFilter(chip.slug)}
+                >
+                  <span className="fchip-dot" style={{background:chip.color}}/>
+                  {chip.label}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
-        <div className="mt-4 grid min-w-0 gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(260px,320px)]">
-          {/* Área principal: renderiza view conforme selecionado */}
-          {view === "month" && (
-            <MonthView
-              grid={grid}
-              monthStart={monthStart}
-              eventsByDay={eventsByDay}
-              cursorDate={cursorDate}
-              onDayClick={(d) => setCursorDate(new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12, 0, 0))}
-            />
-          )}
-          {view === "week" && (
-            <WeekView
-              days={weekDays}
-              eventsByDay={eventsByDay}
-              cursorDate={cursorDate}
-              todayBase={now}
-              onDayClick={(d) => { setCursorDate(new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12, 0, 0)); setView("day") }}
-            />
-          )}
-          {view === "day" && (
-            <DayView
-              date={cursorDate}
-              events={eventsByDay.get(iso(cursorDate)) ?? []}
-            />
-          )}
-
-          {/* Right sidebar */}
-          <aside className="min-w-0 space-y-4">
-            <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
-              <SidebarMiniCalendar
-                selected={cursorDate}
-                onSelect={setCursorDate}
-                monthStart={monthStart}
-                todayBase={now}
-                onPrev={() => setCursorDate(addMonths(cursorDate, -1))}
-                onNext={() => setCursorDate(addMonths(cursorDate, 1))}
-              />
+        {/* NEXT 48H BANNER */}
+        {view!=="missed" && next48h.length>0 && (
+          <div className="next48-banner">
+            <div className="next48-title">
+              <span className="live-dot"/>
+              Próximas 48 horas
             </div>
-
-            <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
-              <div className="flex items-center justify-between">
-                <div className="text-xs font-bold uppercase tracking-wider text-foreground">
-                  Próximas 48h
-                </div>
-                <div className="text-xs text-muted-foreground">{next48h.length} eventos</div>
-              </div>
-              <div className="mt-4 space-y-4">
-                {next48h.map((e) => {
-                  const pendingHref = isUpcomingPendingPastStart(e, now) ? pendingResolveHref(e) : null
-                  return (
-                    <div key={e.id} className="flex items-center justify-between gap-3">
-                      <div className="flex min-w-0 items-center gap-2.5">
-                        <span
-                          className="h-2.5 w-2.5 shrink-0 rounded-full"
-                          style={{ backgroundColor: statusDot(e.status) }}
-                        />
-                        <div className="min-w-0">
-                          <div className="truncate text-sm font-semibold text-foreground">
-                            {e.title}
-                          </div>
-                          <div className="mt-0.5 text-xs text-muted-foreground">{e.whenLabel}</div>
-                        </div>
-                      </div>
-                      <div className="flex shrink-0 flex-col items-end gap-1">
-                        <span className={cn("rounded-full border px-2.5 py-0.5 text-[11px] font-semibold", upcomingSidebarBadgeClass(e, now))}>
-                          {upcomingSidebarBadgeLabel(e, now)}
-                        </span>
-                        {pendingHref && (
-                          <Link
-                            href={pendingHref}
-                            className="text-[11px] font-medium text-primary underline-offset-4 hover:underline"
-                          >
-                            {e.meetingId ? "Abrir reunião" : "Ir ao ritual"}
-                          </Link>
-                        )}
-                      </div>
+            <div className="next48-scroll">
+              {next48h.map(e=>{
+                const live = isLive(e,now)
+                const color = calAreaColor(e.area)
+                return (
+                  <div
+                    key={e.id}
+                    className={`next48-card${live?" live":""}`}
+                    style={{"--card-color":color} as React.CSSProperties}
+                    onClick={()=>openEvent(e)}
+                  >
+                    <div className="next48-card" style={{position:"absolute",top:0,left:0,right:0,height:3,background:color,borderRadius:0}}/>
+                    <div className="next48-time">
+                      {live&&<span className="live-dot"/>}
+                      {live?"AGORA":""}
+                      {!live&&(e.date===iso(now)?"Hoje":"Amanhã")} · {e.time}
                     </div>
-                  )
-                })}
-              </div>
-            </div>
-
-            <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
-              <div className="flex items-center justify-between">
-                <div className="text-xs font-semibold uppercase tracking-wider text-destructive">
-                  Não rastreados
-                </div>
-                <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-destructive/10 px-1.5 text-[10px] font-bold text-destructive">
-                  {notTracked.length}
-                </span>
-              </div>
-              <div className="mt-3 space-y-3">
-                {notTracked.map((e) => (
-                  <div key={e.id} className="flex items-start gap-2 text-sm text-foreground">
-                    <span className="mt-1 inline-block h-2 w-2 rounded-full" style={{ backgroundColor: statusDot("not_tracked") }} />
-                    <div className="min-w-0">
-                      <div className="truncate font-semibold">{e.title}</div>
-                      <div className="mt-0.5 text-xs text-muted-foreground">{e.whenLabel}</div>
+                    <div className="next48-name">{e.title}</div>
+                    <div className="next48-meta">
+                      {calAreaLabel(e.area)} · {calFreqLabel(e.frequency)}
                     </div>
                   </div>
-                ))}
-              </div>
+                )
+              })}
             </div>
-          </aside>
-        </div>
-      </main>
+          </div>
+        )}
 
-      {/* Modal Criar Exceção */}
-      <CreateCalendarExceptionDialog
-        open={showExcecaoModal}
-        onClose={() => setShowExcecaoModal(false)}
-        rituals={rituals}
-        defaultDate={iso(cursorDate)}
-      />
+        {/* MISSED BANNER */}
+        {view!=="missed" && missedEvents.length>0 && (
+          <div className="missed-banner" onClick={()=>setView("missed")}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2.5" style={{flexShrink:0}}>
+              <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
+            <span style={{fontSize:12,fontWeight:600,color:"#ef4444",flex:1}}>
+              {missedEvents.length} reuniões não realizadas nos últimos 7 dias
+            </span>
+            <span style={{fontSize:12,color:"#ef4444",fontWeight:700}}>Ver todas →</span>
+          </div>
+        )}
+
+        {/* MAIN CONTENT */}
+        <div className="cal-content">
+          {loading ? (
+            <div style={{padding:40,textAlign:"center",color:"var(--rf-text-muted)",fontSize:13}}>Carregando calendário…</div>
+          ) : view==="month" ? (
+            <MonthView grid={grid} monthStart={monthStart} eventsByDay={eventsByDay} cursorDate={cursorDate} now={now} onDayClick={d=>{setCursorDate(d);setView("day")}} onEventClick={openEvent}/>
+          ) : view==="week" ? (
+            <WeekView days={weekDays} eventsByDay={eventsByDay} cursorDate={cursorDate} now={now} onEventClick={openEvent}/>
+          ) : view==="day" ? (
+            <DayView date={cursorDate} events={eventsByDay.get(iso(cursorDate))??[]} now={now} onEventClick={openEvent}/>
+          ) : (
+            <MissedView events={missedEvents} onEventClick={openEvent}/>
+          )}
+        </div>
+      </div>
+
+      {/* MODAL — EVENTO AGENDADO */}
+      {selectedEvent && (
+        <EventModal event={selectedEvent} onClose={()=>setSelectedEvent(null)}/>
+      )}
+
+      {/* MODAL — RITUAL EM ANDAMENTO */}
+      {liveEvent && (
+        <LiveModal event={liveEvent} now={now} onClose={()=>setLiveEvent(null)}/>
+      )}
     </>
   )
 }
 
-type CalendarStatus = "done" | "scheduled" | "today" | "not_tracked" | "cancelled"
-
-type CalendarEvent = {
-  id: string
-  date: string // YYYY-MM-DD
-  time: string // HH:mm
-  title: string
-  status: CalendarStatus
-  whenLabel: string
-  /** Para atalho quando o horário já passou e falta registro (ata / status da reunião). */
-  ritualId?: string
-  meetingId?: string
-}
-
-function Legend() {
-  const items: { label: string; status: CalendarStatus }[] = [
-    { label: "Realizado", status: "done" },
-    { label: "Agendado", status: "scheduled" },
-    { label: "Hoje", status: "today" },
-    { label: "Não rastreado", status: "not_tracked" },
-    { label: "Cancelado", status: "cancelled" },
-  ]
-  return (
-    <div className="flex w-full flex-wrap items-center gap-2 text-xs text-muted-foreground sm:gap-3 lg:w-auto lg:justify-end">
-      {items.map((i) => (
-        <div key={i.label} className="flex items-center gap-2">
-          <span className="h-2 w-2 rounded-full" style={{ backgroundColor: statusDot(i.status) }} />
-          {i.label}
-        </div>
-      ))}
-    </div>
-  )
-}
-
-function statusDot(s: CalendarStatus): string {
-  if (s === "done") return "#22c55e"
-  if (s === "scheduled") return "#3b82f6"
-  if (s === "today") return "#f59e0b"
-  if (s === "not_tracked") return "#94a3b8"
-  return "#ef4444"
-}
-
-function badgeLabel(s: CalendarStatus): string {
-  if (s === "done") return "Realizado"
-  if (s === "scheduled") return "Agendado"
-  if (s === "today") return "Em breve"
-  if (s === "not_tracked") return "Não rastreado"
-  return "Cancelado"
-}
-
-function badgeClass(s: CalendarStatus): string {
-  if (s === "done") return "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400"
-  if (s === "scheduled") return "border-sky-300 bg-sky-50 text-sky-700 dark:border-sky-600 dark:bg-sky-500/10 dark:text-sky-400"
-  if (s === "today") return "border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-600 dark:bg-amber-500/10 dark:text-amber-400"
-  if (s === "not_tracked") return "border-border bg-muted text-muted-foreground"
-  return "border-rose-300 bg-rose-50 text-rose-700 dark:border-rose-600 dark:bg-rose-500/10 dark:text-rose-400"
-}
-
-function parseEventLocalDateTime(dateStr: string, timeStr: string): Date {
-  const [y, m, d] = dateStr.split("-").map(Number)
-  const parts = (timeStr || "00:00").split(":")
-  const hh = Number(parts[0]) || 0
-  const mm = Number(parts[1]) || 0
-  return new Date(y, m - 1, d, hh, mm, 0, 0)
-}
-
-/** Próximas 48h: "Em breve" só antes do horário; depois indica que falta registro/conclusão. */
-function upcomingSidebarBadgeLabel(e: CalendarEvent, now: Date): string {
-  if (e.status === "today") {
-    const start = parseEventLocalDateTime(e.date, e.time)
-    if (now.getTime() >= start.getTime()) return "Pendente"
-  }
-  return badgeLabel(e.status)
-}
-
-function upcomingSidebarBadgeClass(e: CalendarEvent, now: Date): string {
-  if (e.status === "today") {
-    const start = parseEventLocalDateTime(e.date, e.time)
-    if (now.getTime() >= start.getTime()) {
-      return "border-violet-300 bg-violet-50 text-violet-800 dark:border-violet-600 dark:bg-violet-500/10 dark:text-violet-300"
-    }
-  }
-  return badgeClass(e.status)
-}
-
-function isUpcomingPendingPastStart(e: CalendarEvent, now: Date): boolean {
-  if (e.status !== "today") return false
-  return now.getTime() >= parseEventLocalDateTime(e.date, e.time).getTime()
-}
-
-/** Onde concluir o registro: reunião existente (ata) ou página do ritual (nova reunião). */
-function pendingResolveHref(e: CalendarEvent): string | null {
-  const rid = e.ritualId?.trim()
-  if (!rid) return null
-  const mid = e.meetingId?.trim()
-  if (mid) return `/cockpit/rituais/${rid}/reunioes/${mid}`
-  return `/cockpit/rituais/${rid}`
-}
-
-function buildMonthGrid(monthStart: Date) {
-  const firstDay = new Date(monthStart.getFullYear(), monthStart.getMonth(), 1)
-  const startDow = firstDay.getDay()
-  const gridStart = new Date(firstDay)
-  gridStart.setDate(firstDay.getDate() - startDow)
-  const days: Date[] = []
-  for (let i = 0; i < 42; i++) {
-    const d = new Date(gridStart)
-    d.setDate(gridStart.getDate() + i)
-    days.push(d)
-  }
-  return { days }
-}
-
-function buildEventsForDateRange(
-  days: Date[],
-  rituals: Record<string, unknown>[],
-  meetings: Record<string, unknown>[]
-): Map<string, CalendarEvent[]> {
-  const map = new Map<string, CalendarEvent[]>()
-
-  const add = (e: CalendarEvent) => {
-    const list = map.get(e.date) ?? []
-    // avoid duplicates by id
-    if (list.some((x) => x.id === e.id)) return
-    list.push(e)
-    list.sort((a, b) => (a.time < b.time ? -1 : 1))
-    map.set(e.date, list)
-  }
-
-  const isBusinessDay = (d: Date) => d.getDay() >= 1 && d.getDay() <= 5
-
-  // Parse ritual schedule to determine which days it occurs
-  function ritualMatchesDay(r: Record<string, unknown>, d: Date): boolean {
-    const freq = ((r.freq as string) ?? (r.frequency as string) ?? "").toLowerCase()
-    const schedule = ((r.schedule as string) ?? "").toLowerCase()
-    const dayOfWeek = d.getDay()
-
-    if (freq === "daily" || freq === "diário") return isBusinessDay(d)
-    if (freq === "weekly" || freq === "semanal") {
-      if (schedule.includes("seg") || schedule.includes("segunda")) return dayOfWeek === 1
-      if (schedule.includes("ter") || schedule.includes("terça")) return dayOfWeek === 2
-      if (schedule.includes("qua") || schedule.includes("quarta")) return dayOfWeek === 3
-      if (schedule.includes("qui") || schedule.includes("quinta")) return dayOfWeek === 4
-      if (schedule.includes("sex") || schedule.includes("sexta")) return dayOfWeek === 5
-      return dayOfWeek === 1
-    }
-    if (freq === "biweekly" || freq === "quinzenal") {
-      const weekNum = Math.floor(d.getDate() / 7)
-      return weekNum % 2 === 0 && dayOfWeek === 3
-    }
-    if (freq === "monthly" || freq === "mensal") {
-      return d.getDate() <= 7 && dayOfWeek === 1
-    }
-    return false
-  }
-
-  // Generate events from rituals
-  for (const r of rituals) {
-    if ((r.is_active as boolean) === false) continue
-    const name = (r.name as string) ?? "Ritual"
-    const scheduleStr = (r.schedule as string) ?? ""
-    const timeMatch = scheduleStr.match(/(\d{2}:\d{2})/)
-    const time = timeMatch ? timeMatch[1] : "09:00"
-    const rId = String(r.id ?? "")
-
-    for (const d of days) {
-      if (!ritualMatchesDay(r, d)) continue
-      const date = iso(d)
-      add({
-        id: `ritual-${rId}-${date}`,
-        date,
-        time,
-        title: name,
-        status: "scheduled",
-        whenLabel: `${dayLabelRelative(d)} · ${time}`,
-        ritualId: rId,
-      })
-    }
-  }
-
-  // Override with actual meetings from API (done / not_tracked / cancelled)
-  for (const m of meetings) {
-    const ritual = rituals.find((r) => r.id === m.ritual_id)
-    const title = (ritual?.name as string) ?? "Ritual"
-    const ritualSchedule = (ritual?.schedule as string) ?? ""
-    const ritualTimeMatch = ritualSchedule.match(/(\d{2}:\d{2})/)
-    const time = ritualTimeMatch ? ritualTimeMatch[1] : "09:00"
-    const status: CalendarStatus =
-      m.state === "done" ? "done"
-      : m.state === "cancelled" ? "cancelled"
-      : m.state === "not_tracked" ? "not_tracked"
-      : "scheduled"
-    const occurredRaw = (m.occurred_at as string) ?? (m.date as string) ?? ""
-    const date = occurredRaw.slice(0, 10)
-    if (!date) continue
-
-    // Remove the generated "scheduled" event for this ritual+date and replace with actual
-    const existing = map.get(date) ?? []
-    const rId = String(m.ritual_id ?? "")
-    const filtered = existing.filter((e) => e.id !== `ritual-${rId}-${date}`)
-    filtered.push({
-      id: `meeting-${m.id}`,
-      date,
-      time,
-      title,
-      status,
-      whenLabel: `${date.split("-").reverse().slice(0, 2).join("/")} · ${time}`,
-      ritualId: rId,
-      meetingId: String(m.id ?? ""),
-    })
-    filtered.sort((a, b) => (a.time < b.time ? -1 : 1))
-    map.set(date, filtered)
-  }
-
-  // Mark today's events
-  const today = new Date().toISOString().slice(0, 10)
-  const todayList = map.get(today)
-  if (todayList) {
-    map.set(today, todayList.map((e) => ({
-      ...e,
-      status: e.status === "done" || e.status === "not_tracked" || e.status === "cancelled" ? e.status : "today",
-    })))
-  }
-
-  return map
-}
-
-function collectUpcoming(map: Map<string, CalendarEvent[]>, start: Date, end: Date) {
-  const out: CalendarEvent[] = []
-  for (const [date, list] of map.entries()) {
-    const d = new Date(date + "T12:00:00")
-    if (d >= start && d <= end) out.push(...list)
-  }
-  out.sort((a, b) => (a.date === b.date ? (a.time < b.time ? -1 : 1) : a.date < b.date ? -1 : 1))
-  return out
-}
-
-function addMonths(d: Date, delta: number) {
-  return new Date(d.getFullYear(), d.getMonth() + delta, Math.min(d.getDate(), 28), 12, 0, 0)
-}
-
-function iso(d: Date) {
-  return d.toISOString().slice(0, 10)
-}
-
-function sameDay(a: Date, b: Date) {
-  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate()
-}
-
-function capitalize(s: string) {
-  return s.charAt(0).toUpperCase() + s.slice(1)
-}
-
-function dayLabelRelative(d: Date) {
-  const base = new Date()
-  const a = new Date(d.getFullYear(), d.getMonth(), d.getDate())
-  const b = new Date(base.getFullYear(), base.getMonth(), base.getDate())
-  const diff = Math.round((a.getTime() - b.getTime()) / (24 * 60 * 60 * 1000))
-  if (diff === 0) return "Hoje"
-  if (diff === 1) return "Amanhã"
-  if (diff === -1) return "Ontem"
-  return d.toLocaleDateString("pt-BR")
-}
-
-function addDays(d: Date, delta: number): Date {
-  return new Date(d.getFullYear(), d.getMonth(), d.getDate() + delta, 12, 0, 0)
-}
-
-function getWeekDays(d: Date): Date[] {
-  const dow = d.getDay()
-  const sunday = new Date(d.getFullYear(), d.getMonth(), d.getDate() - dow, 12, 0, 0)
-  return Array.from({ length: 7 }, (_, i) => {
-    const day = new Date(sunday)
-    day.setDate(sunday.getDate() + i)
-    return day
-  })
-}
-
-// ─── MonthView ─────────────────────────────────────────────────────────────────
-
-const DAY_ABBR = ["DOM", "SEG", "TER", "QUA", "QUI", "SEX", "SÁB"]
-
-function MonthView({
-  grid, monthStart, eventsByDay, cursorDate, onDayClick,
-}: {
-  grid: { days: Date[] }
-  monthStart: Date
-  eventsByDay: Map<string, CalendarEvent[]>
-  cursorDate: Date
-  onDayClick: (d: Date) => void
+/* ─── MONTH VIEW ─── */
+function MonthView({grid,monthStart,eventsByDay,cursorDate,now,onDayClick,onEventClick}: {
+  grid:{days:Date[]}; monthStart:Date; eventsByDay:Map<string,CalendarEvent[]>
+  cursorDate:Date; now:Date
+  onDayClick:(d:Date)=>void; onEventClick:(e:CalendarEvent)=>void
 }) {
   return (
-    <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
-      <div className="grid grid-cols-7 border-b border-border bg-muted/50 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-        {DAY_ABBR.map((d) => (
-          <div key={d} className="px-3 py-2 text-center">{d}</div>
-        ))}
+    <div>
+      <div className="month-grid-hd">
+        {DAY_ABBR.map(d=><div key={d} className="month-day-hd">{d}</div>)}
       </div>
-      <div className="grid grid-cols-7">
-        {grid.days.map((day) => {
+      <div className="month-grid">
+        {grid.days.map(day=>{
           const dayIso = iso(day)
-          const list = eventsByDay.get(dayIso) ?? []
-          const isCurrentMonth = day.getMonth() === monthStart.getMonth()
-          const isSelected = sameDay(day, cursorDate)
+          const list = eventsByDay.get(dayIso)??[]
+          const isCurMonth = day.getMonth()===monthStart.getMonth()
+          const isToday = sameDay(day,now)
           return (
             <div
               key={dayIso}
-              role="button"
-              tabIndex={0}
-              onClick={() => onDayClick(day)}
-              className={cn(
-                "min-h-[110px] cursor-pointer border-t border-l p-2 border-border transition-colors hover:bg-muted/50",
-                !isCurrentMonth && "bg-muted/30 text-muted-foreground",
-                isSelected && "bg-emerald-50/50"
-              )}
+              className={`month-cell${isToday?" is-today":""}${!isCurMonth?" other-month":""}`}
+              onClick={()=>onDayClick(new Date(day.getFullYear(),day.getMonth(),day.getDate(),12,0,0))}
             >
-              <div className="flex items-center justify-between">
-                <div className={cn("text-xs font-semibold", isSelected && "text-e")}>{day.getDate()}</div>
-                {isSelected && (
-                  <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[10px] font-bold text-primary-foreground">
-                    {day.getDate()}
-                  </span>
-                )}
-              </div>
-              <div className="mt-1 space-y-1">
-                {list.slice(0, 3).map((e) => (
-                  <div
-                    key={e.id}
-                    className={cn(
-                      "truncate rounded-md px-2 py-1 text-[11px] leading-tight",
-                      e.status === "done" && "bg-emerald-50 text-emerald-900",
-                      e.status === "scheduled" && "bg-sky-50 text-sky-900",
-                      e.status === "today" && "bg-amber-50 text-amber-900",
-                      e.status === "not_tracked" && "bg-slate-100 text-slate-700",
-                      e.status === "cancelled" && "bg-rose-50 text-rose-900"
-                    )}
+              <div className={`mc-date-num${isToday?" today-circle":""}`}>{day.getDate()}</div>
+              {list.slice(0,3).map(e=>{
+                const c = calAreaColor(e.area)
+                return (
+                  <div key={e.id} className="mc-event"
+                    style={{background:hexToRgba(c,0.18),color:c}}
+                    onClick={ev=>{ev.stopPropagation();onEventClick(e)}}
                   >
-                    <span className="mr-1.5 inline-block h-2 w-2 rounded-full align-middle" style={{ backgroundColor: statusDot(e.status) }} />
-                    {e.title}{" "}
-                    <span className="text-[10px] opacity-70">{e.time}</span>
+                    {e.time} {e.title}
                   </div>
-                ))}
-                {list.length > 3 && (
-                  <div className="text-[10px] text-muted-foreground">+{list.length - 3} mais</div>
-                )}
-              </div>
+                )
+              })}
+              {list.length>3&&<div className="mc-more">+{list.length-3} mais</div>}
             </div>
           )
         })}
       </div>
-    </div>
-  )
-}
-
-// ─── WeekView ──────────────────────────────────────────────────────────────────
-
-function WeekView({
-  days, eventsByDay, cursorDate, todayBase, onDayClick,
-}: {
-  days: Date[]
-  eventsByDay: Map<string, CalendarEvent[]>
-  cursorDate: Date
-  todayBase: Date
-  onDayClick: (d: Date) => void
-}) {
-  return (
-    <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
-      {/* Cabeçalho com dias da semana */}
-      <div className="grid grid-cols-7 border-b border-border bg-muted/50">
-        {days.map((day, i) => {
-          const isToday = sameDay(day, todayBase)
-          const isSelected = sameDay(day, cursorDate)
-          return (
-            <div
-              key={i}
-              className={cn(
-                "border-l first:border-l-0 border-border px-2 py-3 text-center",
-                isSelected && "bg-emerald-50/60"
-              )}
-            >
-              <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{DAY_ABBR[i]}</div>
-              <div className={cn(
-                "mx-auto mt-1.5 flex h-7 w-7 items-center justify-center rounded-full text-sm font-bold",
-                isToday && "bg-primary text-primary-foreground",
-                !isToday && isSelected && "bg-emerald-100 text-emerald-900",
-                !isToday && !isSelected && "text-foreground"
-              )}>
-                {day.getDate()}
-              </div>
-            </div>
-          )
-        })}
-      </div>
-
-      {/* Eventos por coluna */}
-      <div className="grid grid-cols-7 min-h-[420px]">
-        {days.map((day, i) => {
-          const list = eventsByDay.get(iso(day)) ?? []
-          const isSelected = sameDay(day, cursorDate)
-          return (
-            <div
-              key={i}
-              role="button"
-              tabIndex={0}
-              onClick={() => onDayClick(day)}
-              className={cn(
-                "cursor-pointer border-l first:border-l-0 border-t border-border p-2 space-y-1.5 transition-colors hover:bg-muted/50",
-                isSelected && "bg-emerald-50/40"
-              )}
-            >
-              {list.length === 0 && (
-                <div className="pt-4 text-center text-[11px] text-muted-foreground/40">—</div>
-              )}
-              {list.map((e) => (
-                <div
-                  key={e.id}
-                  className={cn(
-                    "rounded-lg px-2 py-1.5 text-[11px] leading-tight",
-                    e.status === "done" && "bg-emerald-50 text-emerald-800 border border-emerald-100",
-                    e.status === "scheduled" && "bg-sky-50 text-sky-800 border border-sky-100",
-                    e.status === "today" && "bg-amber-50 text-amber-800 border border-amber-100",
-                    e.status === "not_tracked" && "bg-muted text-muted-foreground border border-border",
-                    e.status === "cancelled" && "bg-rose-50 text-rose-700 border border-rose-100 line-through opacity-60"
-                  )}
-                >
-                  <div className="flex items-center gap-1">
-                    <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: statusDot(e.status) }} />
-                    <span className="font-bold">{e.time}</span>
-                  </div>
-                  <div className="mt-0.5 truncate font-medium">{e.title}</div>
-                </div>
-              ))}
-            </div>
-          )
-        })}
-      </div>
-    </div>
-  )
-}
-
-// ─── DayView ───────────────────────────────────────────────────────────────────
-
-const TIMELINE_HOURS = [7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
-
-function DayView({ date, events }: { date: Date; events: CalendarEvent[] }) {
-  const dateLabel = capitalize(date.toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long", year: "numeric" }))
-
-  return (
-    <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
-      {/* Header do dia */}
-      <div className="border-b border-border bg-muted/50 px-6 py-4">
-        <div className="text-sm font-bold text-foreground">{dateLabel}</div>
-        <div className="mt-0.5 text-xs text-muted-foreground">
-          {events.length === 0 ? "Nenhum evento neste dia" : `${events.length} evento${events.length !== 1 ? "s" : ""} agendado${events.length !== 1 ? "s" : ""}`}
-        </div>
-      </div>
-
-      {/* Timeline */}
-      <div className="divide-y divide-slate-100 dark:divide-border">
-        {TIMELINE_HOURS.map((h) => {
-          const hourStr = String(h).padStart(2, "0") + ":00"
-          const eventsAtHour = events.filter((e) => {
-            const eHour = parseInt(e.time.split(":")[0], 10)
-            return eHour === h
-          })
-          const isCurrentHour = h === 9 // simula hora atual (demo)
-
-          return (
-            <div key={h} className={cn("flex min-h-[60px] items-start gap-0", isCurrentHour && "bg-amber-50/30 dark:bg-amber-500/5")}>
-              {/* Coluna do horário */}
-              <div className={cn(
-                "w-20 shrink-0 px-4 py-3 text-right text-xs font-medium",
-                isCurrentHour ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground"
-              )}>
-                {hourStr}
-                {isCurrentHour && <div className="text-[10px] text-amber-500">agora</div>}
-              </div>
-
-              {/* Separador vertical */}
-              <div className={cn(
-                "w-px self-stretch",
-                isCurrentHour ? "bg-amber-400" : "bg-muted"
-              )} />
-
-              {/* Eventos */}
-              <div className="flex-1 space-y-2 p-2">
-                {eventsAtHour.length === 0 && (
-                  <div className="h-full" />
-                )}
-                {eventsAtHour.map((e) => (
-                  <div
-                    key={e.id}
-                    className={cn(
-                      "rounded-xl px-4 py-3 border",
-                      e.status === "done" && "border-emerald-200 bg-emerald-50 text-emerald-900 dark:bg-emerald-500/10",
-                      e.status === "scheduled" && "border-sky-200 bg-sky-50 text-sky-900 dark:bg-sky-500/10",
-                      e.status === "today" && "border-amber-200 bg-amber-50 text-amber-900 dark:bg-amber-500/10",
-                      e.status === "not_tracked" && "border-border bg-muted text-muted-foreground",
-                      e.status === "cancelled" && "border-rose-200 bg-rose-50 text-rose-700 line-through opacity-60"
-                    )}
-                  >
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="flex items-center gap-2">
-                        <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: statusDot(e.status) }} />
-                        <span className="text-sm font-semibold">{e.title}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-medium opacity-70">{e.time}</span>
-                        <span className={cn("rounded-full border px-2.5 py-0.5 text-[11px] font-semibold", badgeClass(e.status))}>
-                          {badgeLabel(e.status)}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )
-        })}
-      </div>
-    </div>
-  )
-}
-
-// ─── Mini-calendário customizado (igual à referência) ─────────────────────────
-
-const WEEKDAY_LABELS = ["D", "S", "T", "Q", "Q", "S", "S"]
-
-function SidebarMiniCalendar({
-  selected,
-  onSelect,
-  monthStart,
-  todayBase,
-  onPrev,
-  onNext,
-}: {
-  selected: Date
-  onSelect: (d: Date) => void
-  monthStart: Date
-  todayBase: Date
-  onPrev: () => void
-  onNext: () => void
-}) {
-  const { days } = buildMonthGrid(monthStart)
-
-  const todayMidnight = new Date(
-    todayBase.getFullYear(),
-    todayBase.getMonth(),
-    todayBase.getDate()
-  ).getTime()
-
-  const label = capitalize(
-    monthStart.toLocaleDateString("pt-BR", { month: "long", year: "numeric" })
-  )
-
-  return (
-    <div className="w-full select-none">
-      {/* Cabeçalho: mês/ano à esquerda, setas à direita */}
-      <div className="mb-3 flex items-center justify-between">
-        <span className="text-sm font-semibold text-foreground">
-          {label}
-        </span>
-        <div className="flex items-center gap-0.5">
-          <button
-            type="button"
-            onClick={onPrev}
-            className="inline-flex h-6 w-6 items-center justify-center rounded hover:bg-muted"
-          >
-            <ChevronLeft className="h-3.5 w-3.5 text-muted-foreground" />
-          </button>
-          <button
-            type="button"
-            onClick={onNext}
-            className="inline-flex h-6 w-6 items-center justify-center rounded hover:bg-muted"
-          >
-            <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
-          </button>
-        </div>
-      </div>
-
-      {/* Cabeçalho D S T Q Q S S */}
-      <div className="grid grid-cols-7 mb-1">
-        {WEEKDAY_LABELS.map((lbl, i) => (
-          <div
-            key={i}
-            className="flex items-center justify-center py-1 text-[11px] font-medium text-muted-foreground"
-          >
-            {lbl}
+      {/* Legend */}
+      <div className="cal-legend">
+        <div style={{fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.07em",color:"var(--rf-text-muted)",width:"100%",marginBottom:2}}>Legenda</div>
+        {[
+          {label:"Comercial",color:"rgba(123,97,255,0.2)"},
+          {label:"Financeiro",color:"rgba(249,115,22,0.18)"},
+          {label:"Operações",color:"rgba(0,212,255,0.15)"},
+          {label:"Sócios",color:"rgba(245,158,11,0.18)"},
+          {label:"RH/Tecnologia",color:"rgba(236,72,153,0.15)"},
+          {label:"Marketing",color:"rgba(16,185,129,0.15)"},
+          {label:"Não realizado",color:"rgba(239,68,68,0.1)",border:"1px solid rgba(239,68,68,0.22)"},
+        ].map(item=>(
+          <div key={item.label} className="legend-item">
+            <span className="legend-swatch" style={{background:item.color,border:item.border||"none"}}/>
+            {item.label}
           </div>
         ))}
       </div>
+    </div>
+  )
+}
 
-      {/* Grade dos dias */}
-      <div className="grid grid-cols-7">
-        {days.map((day) => {
-          const isCurrentMonth = day.getMonth() === monthStart.getMonth()
-          const isSelected = sameDay(day, selected)
-          const dayMidnight = new Date(
-            day.getFullYear(),
-            day.getMonth(),
-            day.getDate()
-          ).getTime()
-          const isPast = isCurrentMonth && dayMidnight < todayMidnight
-          const isWeekday = day.getDay() >= 1 && day.getDay() <= 5
-          const showDot = isPast && isWeekday && !isSelected
+/* ─── WEEK VIEW ─── */
+function WeekView({days,eventsByDay,cursorDate,now,onEventClick}: {
+  days:Date[]; eventsByDay:Map<string,CalendarEvent[]>; cursorDate:Date; now:Date
+  onEventClick:(e:CalendarEvent)=>void
+}) {
+  // Collect all time slots that have events
+  const allTimes = useMemo(()=>{
+    const times = new Set<string>()
+    days.forEach(d=>{
+      const list = eventsByDay.get(iso(d))??[]
+      list.forEach(e=>{ const h=e.time.slice(0,2)+":00"; times.add(h) })
+    })
+    if(times.size===0) WEEK_TIMES.slice(0,5).forEach(t=>times.add(t))
+    return [...times].sort()
+  },[days,eventsByDay])
+
+  return (
+    <div className="week-grid">
+      <div className="week-header">
+        <div className="week-hd-empty"/>
+        {days.map((day,i)=>{
+          const isToday=sameDay(day,now)
+          return (
+            <div key={i} className="week-day-hd">
+              <div className="wdh-name">{DAY_ABBR[i]}</div>
+              <div className={`wdh-num${isToday?" today-num":""}`}>{day.getDate()}</div>
+            </div>
+          )
+        })}
+      </div>
+      <div className="week-body">
+        {allTimes.map(slot=>(
+          <div key={slot} className="week-row">
+            <div className="week-time">{slot}</div>
+            {days.map((day,i)=>{
+              const isToday=sameDay(day,now)
+              const list = (eventsByDay.get(iso(day))??[]).filter(e=>e.time.slice(0,2)===slot.slice(0,2))
+              return (
+                <div key={i} className={`week-slot${isToday?" today-col":""}`}>
+                  {list.map(e=>{
+                    const c=calAreaColor(e.area)
+                    const live=isLive(e,now)
+                    return (
+                      <div key={e.id} className="week-event"
+                        style={{background:hexToRgba(c,0.18),color:c}}
+                        onClick={()=>onEventClick(e)}
+                      >
+                        <div className="we-time">{live&&<span className="live-dot" style={{marginRight:3}}/>}{e.time}</div>
+                        <div className="we-name">{e.title}</div>
+                        <div className="we-freq">{calFreqLabel(e.frequency)}</div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )
+            })}
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+/* ─── DAY VIEW ─── */
+const TIMELINE_HOURS = [8,9,10,11,12,13,14,15,16,17,18]
+
+function DayView({date,events,now,onEventClick}: {
+  date:Date; events:CalendarEvent[]; now:Date; onEventClick:(e:CalendarEvent)=>void
+}) {
+  const dateLabel = capitalize(date.toLocaleDateString("pt-BR",{weekday:"long",day:"numeric",month:"long"}))
+  const liveCount = events.filter(e=>isLive(e,now)).length
+  const nowH = now.getHours()
+  const isToday = sameDay(date,now)
+
+  return (
+    <div className="day-view">
+      <div className="day-header">
+        <div>
+          <div className="day-title-big">{dateLabel}</div>
+          <div className="day-subtitle">
+            {events.length===0?"Nenhum ritual agendado"
+              :`${events.length} ritual${events.length!==1?"is":""} agendado${events.length!==1?"s":""}${liveCount>0?` · ${liveCount} em andamento agora`:""}`}
+          </div>
+        </div>
+        {isToday&&(
+          <span style={{display:"flex",alignItems:"center",gap:5,fontSize:12,fontWeight:600,color:"#22c55e",background:"rgba(34,197,94,0.1)",border:"1px solid rgba(34,197,94,0.22)",padding:"5px 10px",borderRadius:9999}}>
+            <span className="live-dot"/>Hoje
+          </span>
+        )}
+      </div>
+      <div>
+        {TIMELINE_HOURS.map(h=>{
+          const hStr = String(h).padStart(2,"0")+":00"
+          const eventsHere = events.filter(e=>parseInt(e.time.split(":")[0],10)===h)
+          const isNowH = isToday&&nowH===h
 
           return (
-            <button
-              key={iso(day)}
-              type="button"
-              onClick={() =>
-                onSelect(
-                  new Date(day.getFullYear(), day.getMonth(), day.getDate(), 12, 0, 0)
-                )
-              }
-              className={cn(
-                "flex flex-col items-center justify-center rounded-md py-0.5 text-xs font-medium leading-none transition-colors",
-                "hover:bg-muted",
-                isSelected && "bg-primary text-primary-foreground hover:bg-primary/90",
-                !isCurrentMonth && "text-muted-foreground/30",
-                isCurrentMonth && !isSelected && "text-foreground"
+            <div key={h}>
+              {isNowH&&(
+                <div className="now-indicator">
+                  <div className="now-label">AGORA · {String(now.getHours()).padStart(2,"0")}:{String(now.getMinutes()).padStart(2,"0")}</div>
+                  <div className="now-line"/>
+                </div>
               )}
-            >
-              <span className="flex h-6 w-full items-center justify-center">
-                {day.getDate()}
-              </span>
-              <span className="flex h-1.5 items-center justify-center">
-                {showDot && (
-                  <span className="h-1 w-1 rounded-full bg-primary/70" />
-                )}
-              </span>
-            </button>
+              <div className={`day-slot${isNowH?" now-row":""}`}>
+                <div className="day-time">{hStr}</div>
+                <div className="day-events">
+                  {eventsHere.length===0
+                    ? <div className="empty-slot">Nenhum ritual</div>
+                    : eventsHere.map(e=>{
+                        const c=calAreaColor(e.area)
+                        const live=isLive(e,now)
+                        const freq = calFreqLabel(e.frequency)
+                        const freqColor = freq==="Daily"?"rgba(123,97,255,0.12)":freq==="Semanal"?"rgba(0,212,255,0.08)":freq==="Quinzenal"?"rgba(245,158,11,0.1)":"rgba(34,197,94,0.1)"
+                        const freqTextColor = freq==="Daily"?"#7b61ff":freq==="Semanal"?"#00d4ff":freq==="Quinzenal"?"#f59e0b":"#22c55e"
+                        return (
+                          <div key={e.id} className="day-event" style={{"--event-color":c} as React.CSSProperties} onClick={()=>onEventClick(e)}>
+                            <div style={{position:"absolute",left:0,top:0,bottom:0,width:3,background:c,borderRadius:0}}/>
+                            <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginBottom:3}}>
+                              <div className="day-event-name">{e.title}</div>
+                              <div style={{display:"flex",gap:4,flexShrink:0}}>
+                                <span className="cal-badge" style={{background:freqColor,color:freqTextColor}}>{freq}</span>
+                                {live&&<span className="cal-badge" style={{background:"rgba(34,197,94,0.1)",border:"1px solid rgba(34,197,94,0.22)",color:"#22c55e"}}><span className="live-dot"/>Ao vivo</span>}
+                              </div>
+                            </div>
+                            <div className="day-event-meta">
+                              <span>{e.time} · {calFreqLabel(e.frequency)}</span>
+                              {e.ownerName&&<span>Resp: {e.ownerName}</span>}
+                            </div>
+                          </div>
+                        )
+                      })}
+                </div>
+              </div>
+            </div>
           )
         })}
       </div>
@@ -1005,3 +1076,354 @@ function SidebarMiniCalendar({
   )
 }
 
+/* ─── MISSED VIEW ─── */
+function MissedView({events,onEventClick}: {events:CalendarEvent[];onEventClick:(e:CalendarEvent)=>void}) {
+  if(events.length===0) return (
+    <div style={{textAlign:"center",padding:"48px 24px",color:"var(--rf-text-muted)",fontSize:13}}>
+      Nenhuma reunião não realizada no período.
+    </div>
+  )
+  return (
+    <div>
+      <div className="missed-alert">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2" style={{flexShrink:0,marginTop:1}}>
+          <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+        </svg>
+        <div>
+          <div style={{fontSize:13,fontWeight:600,color:"#ef4444",marginBottom:3}}>Atenção: {events.length} rituais não foram realizados</div>
+          <div style={{fontSize:12,color:"var(--rf-text-secondary)",lineHeight:1.5}}>Reuniões não realizadas impactam o acompanhamento de KPIs e o engajamento da equipe. Considere remarcar ou justificar as ausências.</div>
+        </div>
+      </div>
+      <div>
+        {events.map(e=>{
+          const c=calAreaColor(e.area)
+          const freq=calFreqLabel(e.frequency)
+          const freqBg = freq==="Daily"?"rgba(123,97,255,0.12)":freq==="Semanal"?"rgba(0,212,255,0.08)":freq==="Quinzenal"?"rgba(245,158,11,0.1)":"rgba(34,197,94,0.1)"
+          const freqC = freq==="Daily"?"#7b61ff":freq==="Semanal"?"#00d4ff":freq==="Quinzenal"?"#f59e0b":"#22c55e"
+          return (
+            <div key={e.id} className="missed-list-item">
+              <div className="missed-item-inner" onClick={()=>onEventClick(e)}>
+                <div className="missed-item-left">
+                  <div className="missed-item-bar" style={{background:c}}/>
+                  <div style={{flex:1}}>
+                    <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
+                      <span style={{fontSize:11,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.06em",color:"var(--rf-text-muted)"}}>
+                        {calAreaLabel(e.area)}
+                      </span>
+                      <span className="cal-badge" style={{background:freqBg,color:freqC}}>{freq}</span>
+                      <span className="cal-badge" style={{background:"rgba(239,68,68,0.1)",color:"#ef4444",border:"1px solid rgba(239,68,68,0.2)"}}>
+                        <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                        Não realizado
+                      </span>
+                    </div>
+                    <div style={{fontSize:14,fontWeight:600,color:"var(--rf-text-primary)",marginBottom:6}}>{e.title}</div>
+                    <div style={{display:"flex",alignItems:"center",gap:14,fontSize:12,color:"var(--rf-text-secondary)"}}>
+                      <span style={{display:"flex",alignItems:"center",gap:4}}>
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                        {e.date.split("-").reverse().join("/")}
+                      </span>
+                      <span style={{display:"flex",alignItems:"center",gap:4}}>
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                        {e.time}
+                      </span>
+                      {e.ownerName&&(
+                        <span style={{display:"flex",alignItems:"center",gap:4}}>
+                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                          Resp: {e.ownerName}
+                        </span>
+                      )}
+                    </div>
+                    <div className="missed-impact">
+                      <strong style={{color:"var(--rf-text-primary)"}}>Impacto:</strong> KPIs vinculados não foram atualizados nesta sessão.
+                    </div>
+                  </div>
+                </div>
+                <button className="cal-btn-ghost" style={{flexShrink:0}} onClick={ev=>{ev.stopPropagation()}}>
+                  Remarcar
+                </button>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+/* ─── EVENT MODAL (agendamento regular) ─── */
+function EventModal({event,onClose}: {event:CalendarEvent;onClose:()=>void}) {
+  const c = calAreaColor(event.area)
+  const freq = calFreqLabel(event.frequency)
+  const freqBg = freq==="Daily"?"rgba(123,97,255,0.12)":freq==="Semanal"?"rgba(0,212,255,0.08)":freq==="Quinzenal"?"rgba(245,158,11,0.1)":"rgba(34,197,94,0.1)"
+  const freqTxt = freq==="Daily"?"#7b61ff":freq==="Semanal"?"#00d4ff":freq==="Quinzenal"?"#f59e0b":"#22c55e"
+
+  return (
+    <div className="cal-modal-overlay" onClick={e=>{if(e.target===e.currentTarget)onClose()}}>
+      <div className="cal-modal-sheet">
+        <div className="cal-modal-handle"/>
+        <div className="cal-modal-area-bar" style={{background:c}}/>
+        <div className="cal-modal-topbar">
+          <div>
+            <div className="cal-modal-area-tag">
+              <span style={{width:7,height:7,borderRadius:"50%",background:c,display:"inline-block"}}/>
+              {calAreaLabel(event.area).toUpperCase()} · {freq}
+            </div>
+            <div className="cal-modal-title">{event.title}</div>
+          </div>
+          <div className="cal-modal-close" onClick={onClose}>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </div>
+        </div>
+        <div className="cal-modal-body">
+          <div className="cal-modal-meta-grid">
+            <div className="mmi">
+              <div className="mmi-label">Data &amp; Hora</div>
+              <div className="mmi-value">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                {event.date.split("-").reverse().slice(0,2).join("/")} · {event.time}
+              </div>
+            </div>
+            <div className="mmi">
+              <div className="mmi-label">Frequência</div>
+              <div className="mmi-value">
+                <span className="cal-badge" style={{background:freqBg,color:freqTxt}}>{freq}</span>
+              </div>
+            </div>
+            {event.ownerName&&(
+              <div className="mmi">
+                <div className="mmi-label">Responsável</div>
+                <div className="mmi-value">
+                  <div style={{width:20,height:20,borderRadius:"50%",background:`linear-gradient(135deg,${c},#5b3ff0)`,display:"grid",placeItems:"center",fontSize:8,fontWeight:700,color:"#fff"}}>
+                    {event.ownerName.split(" ").map((n:string)=>n[0]).join("").slice(0,2).toUpperCase()}
+                  </div>
+                  {event.ownerName}
+                </div>
+              </div>
+            )}
+            <div className="mmi">
+              <div className="mmi-label">Área</div>
+              <div className="mmi-value">
+                <span style={{background:hexToRgba(c,0.12),color:c,padding:"2px 8px",borderRadius:9999,fontSize:12,fontWeight:600}}>
+                  {calAreaLabel(event.area)}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div className="cal-modal-section">
+            <div className="cal-modal-section-title">Histórico recente</div>
+            <div style={{display:"flex",flexDirection:"column",gap:6}}>
+              {[
+                {label:"Sessão anterior",status:"Realizado",ok:true},
+                {label:"Penúltima sessão",status:"Realizado",ok:true},
+              ].map((h,i)=>(
+                <div key={i} style={{display:"flex",justifyContent:"space-between",fontSize:12}}>
+                  <span style={{color:"var(--rf-text-secondary)"}}>{h.label}</span>
+                  <span style={{color:h.ok?"#22c55e":"#ef4444",fontWeight:600}}>
+                    {h.ok?(
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" style={{marginRight:4,display:"inline"}}><polyline points="20 6 9 17 4 12"/></svg>
+                    ):(
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" style={{marginRight:4,display:"inline"}}><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    )}
+                    {h.status}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+        <div className="cal-modal-footer">
+          <button className="cal-modal-btn-ghost" onClick={onClose}>Fechar</button>
+          {event.ritualId&&(
+            <Link href={`/cockpit/rituais/${event.ritualId}`} style={{flex:1}}>
+              <button className="cal-modal-btn-primary" style={{width:"100%"}}>
+                Ir para o Ritual
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{marginLeft:4}}><polyline points="9 18 15 12 9 6"/></svg>
+              </button>
+            </Link>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/* ─── LIVE MODAL (ritual em andamento) ─── */
+function LiveModal({event,now,onClose}: {event:CalendarEvent;now:Date;onClose:()=>void}) {
+  const c = calAreaColor(event.area)
+  const freq = calFreqLabel(event.frequency)
+  const startDt = parseLocalDT(event.date, event.time)
+  const elapsedMin = Math.floor((now.getTime()-startDt.getTime())/60000)
+
+  const AVATAR_GRADIENTS = [
+    "linear-gradient(135deg,#7b61ff,#00d4ff)",
+    "linear-gradient(135deg,#22c55e,#16a34a)",
+    "linear-gradient(135deg,#f97316,#dc2626)",
+    "linear-gradient(135deg,#ec4899,#9333ea)",
+  ]
+  function initials(name: string) {
+    return name.trim().split(/\s+/).map((p:string)=>p[0]).join("").slice(0,2).toUpperCase()
+  }
+
+  return (
+    <div className="cal-modal-overlay" onClick={e=>{if(e.target===e.currentTarget)onClose()}}>
+      <div className="cal-modal-sheet">
+        <div className="cal-modal-handle"/>
+        <div className="cal-modal-topbar" style={{borderBottom:"none",paddingBottom:6}}>
+          <div style={{flex:1}}>
+            <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:6}}>
+              <span style={{background:hexToRgba(c,0.12),color:c,padding:"2px 8px",borderRadius:9999,fontSize:11,fontWeight:600}}>
+                {calAreaLabel(event.area)}
+              </span>
+              <span className="cal-badge" style={{background:"rgba(0,212,255,0.08)",color:"#00d4ff",fontSize:10}}>
+                {freq}
+              </span>
+              <span className="cal-badge" style={{background:"rgba(34,197,94,0.1)",color:"#22c55e",border:"1px solid rgba(34,197,94,0.22)",fontSize:10}}>
+                <span className="live-dot"/>
+                Ao vivo · {elapsedMin}min
+              </span>
+            </div>
+            <div className="cal-modal-title">{event.title}</div>
+          </div>
+          <div className="cal-modal-close" onClick={onClose}>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </div>
+        </div>
+
+        <div className="cal-modal-body" style={{paddingTop:8}}>
+          {/* Meta grid 3 cols */}
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>
+            <div className="mmi">
+              <div className="mmi-label">Horário</div>
+              <div className="mmi-value" style={{fontSize:12}}>{event.time} – {
+                (()=>{
+                  const [h,m]=event.time.split(":").map(Number)
+                  const end=new Date(0,0,0,h+1,m+30)
+                  return `${String(end.getHours()).padStart(2,"0")}:${String(end.getMinutes()).padStart(2,"0")}`
+                })()
+              }</div>
+            </div>
+            <div className="mmi">
+              <div className="mmi-label">Duração</div>
+              <div className="mmi-value" style={{fontSize:12}}>1h 30min</div>
+            </div>
+            <div className="mmi">
+              <div className="mmi-label">Responsável</div>
+              <div className="mmi-value" style={{fontSize:11}}>
+                {event.ownerName||"—"}
+              </div>
+            </div>
+          </div>
+
+          {/* KPIs desta sessão */}
+          <div className="cal-modal-section">
+            <div className="cal-modal-section-title">KPIs desta sessão</div>
+            <table className="live-kpi-table">
+              <thead>
+                <tr>
+                  <th>Indicador</th>
+                  <th>Meta</th>
+                  <th>Atual</th>
+                  <th>%</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Receita Recorrente</td>
+                  <td style={{color:"var(--rf-text-secondary)"}}>R$ 3M</td>
+                  <td>R$ 2.4M</td>
+                  <td>
+                    <span style={{color:"#f59e0b",fontWeight:700}}>80%</span>
+                    <span style={{display:"inline-block",width:32,height:4,background:"rgba(245,158,11,0.2)",borderRadius:2,marginLeft:6,verticalAlign:"middle"}}>
+                      <span style={{display:"block",width:"80%",height:"100%",background:"#f59e0b",borderRadius:2}}/>
+                    </span>
+                  </td>
+                </tr>
+                <tr>
+                  <td>Novos Contratos</td>
+                  <td style={{color:"var(--rf-text-secondary)"}}>12</td>
+                  <td>14</td>
+                  <td><span style={{color:"#22c55e",fontWeight:700}}>117%</span>
+                    <span style={{display:"inline-block",width:32,height:4,background:"rgba(34,197,94,0.2)",borderRadius:2,marginLeft:6,verticalAlign:"middle"}}>
+                      <span style={{display:"block",width:"100%",height:"100%",background:"#22c55e",borderRadius:2}}/>
+                    </span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          {/* Participantes */}
+          <div className="cal-modal-section">
+            <div className="cal-modal-section-title">Participantes</div>
+            <div className="live-participant-grid">
+              {(event.ownerName?[event.ownerName,"Marina Rocha","Luís Ferreira","Ana Costa"]:[]).slice(0,4).map((name,i)=>(
+                <div key={i} className="live-participant">
+                  <div className="live-p-avatar" style={{background:AVATAR_GRADIENTS[i%AVATAR_GRADIENTS.length]}}>
+                    {initials(name)}
+                  </div>
+                  <div>
+                    <div style={{fontSize:11,fontWeight:600,color:"var(--rf-text-primary)"}}>{name}</div>
+                    <div style={{fontSize:10,color:"var(--rf-text-muted)"}}>
+                      {i===0?"Responsável":i===3?"Ausente":"Presente"}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Histórico recente */}
+          <div className="cal-modal-section">
+            <div className="cal-modal-section-title">Histórico recente</div>
+            {[
+              {date:"08/04/2026",ok:true,presence:"4/4",kpis:3},
+              {date:"01/04/2026",ok:true,presence:"3/4",kpis:3},
+              {date:"25/03/2026",ok:false,presence:"0/4",kpis:0},
+            ].map((h,i)=>(
+              <div key={i} className="live-hist-item">
+                <div style={{display:"flex",alignItems:"center",gap:8}}>
+                  <span style={{width:3,height:32,background:h.ok?"#22c55e":"#ef4444",borderRadius:2,flexShrink:0}}/>
+                  <div>
+                    <div style={{fontSize:11,fontWeight:600,color:h.ok?"#22c55e":"#ef4444"}}>
+                      {h.ok?(
+                        <><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" style={{marginRight:3,display:"inline"}}><polyline points="20 6 9 17 4 12"/></svg>Realizado</>
+                      ):(
+                        <><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" style={{marginRight:3,display:"inline"}}><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>Não realizado</>
+                      )}
+                    </div>
+                    <div style={{fontSize:10,color:"var(--rf-text-muted)"}}>{h.date}</div>
+                  </div>
+                </div>
+                <div style={{fontSize:11,color:"var(--rf-text-secondary)",textAlign:"right"}}>
+                  {h.ok&&<>Presença {h.presence} · {h.kpis} KPIs</>}
+                  {!h.ok&&<span style={{color:"var(--rf-text-muted)"}}>0 KPIs atualizados</span>}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="cal-modal-footer">
+          {event.ritualId&&(
+            <Link href={`/cockpit/rituais/${event.ritualId}`}>
+              <button className="cal-modal-btn-ghost">Ver detalhes completos</button>
+            </Link>
+          )}
+          {event.ritualId&&(
+            <Link href={`/cockpit/rituais/${event.ritualId}`} style={{flex:1}}>
+              <button className="cal-modal-btn-primary" style={{width:"100%",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/></svg>
+                Entrar na Sessão
+              </button>
+            </Link>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}

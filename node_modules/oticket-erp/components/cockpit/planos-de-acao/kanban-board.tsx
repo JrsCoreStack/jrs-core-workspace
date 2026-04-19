@@ -14,7 +14,6 @@ import {
 import { useDraggable, useDroppable } from "@dnd-kit/core"
 import { CSS } from "@dnd-kit/utilities"
 import { cn } from "@/lib/utils"
-import { ChevronDown, ChevronUp, Plus } from "lucide-react"
 import { ActionPlanCard, type ActionPlan } from "./action-plan-card"
 import { CreateActionPlanDialog } from "@/components/cockpit/dialogs/create-action-plan-dialog"
 
@@ -24,69 +23,14 @@ const COLUMNS: {
   key: Exclude<PlanStatus, "archived">
   label: string
   dot: string
+  topBorder: string
+  countStyle?: { background: string; color: string }
 }[] = [
-  { key: "planned", label: "PLANEJADO", dot: "#3b82f6" },
-  { key: "in_progress", label: "EM EXECUÇÃO", dot: "#06b6d4" },
-  { key: "blocked", label: "BLOQUEADO", dot: "#fb923c" },
-  { key: "delivered", label: "ENTREGUE", dot: "#22c55e" },
+  { key: "planned",     label: "PLANEJADO",    dot: "#6366f1", topBorder: "#6366f1" },
+  { key: "in_progress", label: "EM EXECUÇÃO",  dot: "#f59e0b", topBorder: "#f59e0b" },
+  { key: "blocked",     label: "BLOQUEADO",    dot: "#ef4444", topBorder: "#ef4444", countStyle: { background: "rgba(239,68,68,0.10)", color: "#ef4444" } },
+  { key: "delivered",   label: "CONCLUÍDO",    dot: "#22c55e", topBorder: "#22c55e", countStyle: { background: "rgba(34,197,94,0.10)", color: "#22c55e" } },
 ]
-
-function ColumnHeader({
-  label,
-  count,
-  dotColor,
-}: {
-  label: string
-  count: number
-  dotColor: string
-}) {
-  return (
-    <div className="flex items-center justify-between border-b border-slate-200 pb-2 dark:border-border">
-      <div className="flex items-center gap-2">
-        <span className="h-2 w-2 rounded-full" style={{ backgroundColor: dotColor }} />
-        <span className="font-mono text-[11px] font-semibold uppercase tracking-wide text-slate-900 dark:text-slate-100">
-          {label}
-        </span>
-        <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-slate-100 px-1.5 text-[10px] font-semibold text-slate-500 dark:bg-slate-800 dark:text-slate-300">
-          {count}
-        </span>
-      </div>
-      <CreateActionPlanDialog
-        trigger={
-          <button
-            type="button"
-            className="inline-flex h-7 w-7 items-center justify-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800"
-            aria-label={`Adicionar em ${label}`}
-          >
-            <Plus className="h-4 w-4" />
-          </button>
-        }
-      />
-    </div>
-  )
-}
-
-function DroppableColumn({
-  id,
-  children,
-}: {
-  id: Exclude<PlanStatus, "archived">
-  children: React.ReactNode
-}) {
-  const { setNodeRef, isOver } = useDroppable({ id })
-  return (
-    <div
-      ref={setNodeRef}
-      className={cn(
-        "min-w-[180px] flex-1",
-        isOver &&
-          "ring-2 ring-emerald-600 ring-offset-2 ring-offset-slate-50 dark:ring-offset-background"
-      )}
-    >
-      {children}
-    </div>
-  )
-}
 
 function DraggableCard({
   plan,
@@ -104,7 +48,7 @@ function DraggableCard({
     <div
       ref={setNodeRef}
       style={style}
-      className={cn("touch-none", isDragging && "opacity-50")}
+      className={cn("touch-none", isDragging && "opacity-40")}
       {...listeners}
       {...attributes}
     >
@@ -113,7 +57,27 @@ function DraggableCard({
   )
 }
 
-const INITIAL_VISIBLE = 4
+function DroppableColumn({
+  id,
+  children,
+}: {
+  id: Exclude<PlanStatus, "archived">
+  children: React.ReactNode
+}) {
+  const { setNodeRef, isOver } = useDroppable({ id })
+  return (
+    <div
+      ref={setNodeRef}
+      style={{
+        outline: isOver ? "2px solid var(--rf-accent, #7b61ff)" : undefined,
+        outlineOffset: isOver ? "2px" : undefined,
+        borderRadius: "0 0 14px 14px",
+      }}
+    >
+      {children}
+    </div>
+  )
+}
 
 export function KanbanBoard({
   plans,
@@ -128,16 +92,15 @@ export function KanbanBoard({
 }) {
   const effectiveAllPlans = allPlans ?? plans
   const [activeId, setActiveId] = useState<string | null>(null)
+  const [archivedOpen, setArchivedOpen] = useState(false)
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({})
 
-  const [expanded, setExpanded] = useState<Record<string, boolean>>({})
-  const toggleExpand = useCallback((key: string) => {
-    setExpanded((prev) => ({ ...prev, [key]: !prev[key] }))
+  const toggleCollapsed = useCallback((key: string) => {
+    setCollapsed((prev) => ({ ...prev, [key]: !prev[key] }))
   }, [])
 
   const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: { distance: 6 },
-    })
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } })
   )
 
   const byColumn = useMemo(() => {
@@ -149,24 +112,18 @@ export function KanbanBoard({
     return map
   }, [plans])
 
+  const archivedPlans = useMemo(() => plans.filter((p) => p.status === "archived"), [plans])
   const activePlan = activeId != null ? effectiveAllPlans.find((p) => p.id === activeId) : null
 
-  const resolveStatusFromOver = (
-    overId: string | number
-  ): Exclude<PlanStatus, "archived"> | null => {
+  const resolveStatusFromOver = (overId: string | number): Exclude<PlanStatus, "archived"> | null => {
     const overStr = String(overId)
-    if (COLUMNS.some((c) => c.key === overStr)) {
-      return overStr as Exclude<PlanStatus, "archived">
-    }
+    if (COLUMNS.some((c) => c.key === overStr)) return overStr as Exclude<PlanStatus, "archived">
     const p = effectiveAllPlans.find((x) => String(x.id) === overStr)
     if (!p || p.status === "archived") return null
     return p.status as Exclude<PlanStatus, "archived">
   }
 
-  const onDragStart = (e: DragStartEvent) => {
-    setActiveId(String(e.active.id))
-  }
-
+  const onDragStart = (e: DragStartEvent) => setActiveId(String(e.active.id))
   const onDragEnd = (e: DragEndEvent) => {
     setActiveId(null)
     if (!e.over) return
@@ -176,66 +133,284 @@ export function KanbanBoard({
   }
 
   return (
-    <DndContext
-      sensors={sensors}
-      collisionDetection={closestCorners}
-      onDragStart={onDragStart}
-      onDragEnd={onDragEnd}
-      onDragCancel={() => setActiveId(null)}
-    >
-      <div className="w-full overflow-x-auto pb-2">
-        <div className="flex min-w-[760px] gap-4">
+    <>
+      <style>{`
+        .kb-board {
+          display: flex;
+          gap: 12px;
+          overflow-x: auto;
+          padding: 16px 20px 20px;
+          scrollbar-width: thin;
+          scrollbar-color: var(--rf-border-strong, rgba(255,255,255,0.16)) transparent;
+          min-height: calc(100vh - 180px);
+          align-items: flex-start;
+          height: 100%;
+          overflow-y: auto;
+        }
+        .kb-board::-webkit-scrollbar { height: 5px; }
+        .kb-board::-webkit-scrollbar-thumb { background: var(--rf-border-strong); border-radius: 3px; }
+
+        .kb-col { flex-shrink: 0; width: 242px; display: flex; flex-direction: column; }
+
+        .kb-col-head {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 10px 12px;
+          background: var(--rf-bg-surface);
+          border: 1px solid var(--rf-border-subtle);
+          border-radius: 14px 14px 0 0;
+          border-bottom: none;
+        }
+        .kb-col-head-row { display: flex; align-items: center; gap: 8px; }
+        .kb-col-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+        .kb-col-name {
+          font-size: 11px;
+          font-weight: 700;
+          color: var(--rf-text-primary);
+          text-transform: uppercase;
+          letter-spacing: 0.06em;
+          font-family: var(--font-body, 'DM Sans', sans-serif);
+        }
+        .kb-col-count {
+          font-size: 11px;
+          font-weight: 700;
+          padding: 1px 7px;
+          border-radius: 9999px;
+          background: var(--rf-bg-overlay, #1c1f28);
+          color: var(--rf-text-secondary);
+        }
+        .kb-col-menu {
+          color: var(--rf-text-muted);
+          cursor: pointer;
+          padding: 2px;
+          border-radius: 4px;
+          transition: all 0.18s;
+          background: none;
+          border: none;
+          display: flex;
+          align-items: center;
+        }
+        .kb-col-menu:hover { background: var(--rf-bg-hover); color: var(--rf-text-primary); }
+
+        .kb-col-body {
+          background: var(--rf-bg-elevated);
+          border: 1px solid var(--rf-border-subtle);
+          border-radius: 0 0 14px 14px;
+          padding: 8px;
+          min-height: 400px;
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+          border-top: 2px solid;
+        }
+
+        .kb-add-btn {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          padding: 8px 10px;
+          border-radius: 10px;
+          border: 1px dashed var(--rf-border-strong);
+          color: var(--rf-text-muted);
+          font-size: 12px;
+          font-weight: 500;
+          cursor: pointer;
+          transition: all 0.18s;
+          margin-top: 2px;
+          background: transparent;
+          width: 100%;
+        }
+        .kb-add-btn:hover {
+          border-color: var(--rf-accent-border, rgba(123,97,255,0.28));
+          color: var(--rf-accent, #7b61ff);
+          background: var(--rf-accent-soft, rgba(123,97,255,0.08));
+        }
+
+        /* Archived col (collapsed) */
+        .kb-col-archived-head {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 10px 12px;
+          background: var(--rf-bg-surface);
+          border: 1px solid var(--rf-border-subtle);
+          border-radius: 14px;
+          cursor: pointer;
+          transition: all 0.18s;
+        }
+        .kb-col-archived-head:hover { background: var(--rf-bg-hover); }
+        .kb-col-archived-body {
+          background: var(--rf-bg-elevated);
+          border: 1px solid var(--rf-border-subtle);
+          border-radius: 0 0 14px 14px;
+          padding: 8px;
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+          border-top: 2px solid var(--rf-text-muted, #3d4455);
+        }
+
+        /* Add new column button */
+        .kb-col-add {
+          flex-shrink: 0;
+          width: 200px;
+          align-self: flex-start;
+        }
+        .kb-col-add-btn {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          padding: 12px 14px;
+          background: var(--rf-bg-surface);
+          border: 1px dashed var(--rf-border-strong);
+          border-radius: 14px;
+          color: var(--rf-text-muted);
+          font-size: 13px;
+          font-weight: 500;
+          cursor: pointer;
+          transition: all 0.18s;
+          width: 100%;
+        }
+        .kb-col-add-btn:hover {
+          border-color: var(--rf-accent-border, rgba(123,97,255,0.28));
+          color: var(--rf-accent, #7b61ff);
+          background: var(--rf-accent-soft, rgba(123,97,255,0.08));
+        }
+      `}</style>
+
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCorners}
+        onDragStart={onDragStart}
+        onDragEnd={onDragEnd}
+        onDragCancel={() => setActiveId(null)}
+      >
+        <div className="kb-board">
           {COLUMNS.map((col) => {
             const items = byColumn.get(col.key) ?? []
-            const isExpanded = !!expanded[col.key]
-            const visibleItems = isExpanded ? items : items.slice(0, INITIAL_VISIBLE)
-            const hiddenCount = Math.max(0, items.length - INITIAL_VISIBLE)
+            const isCol = !collapsed[col.key]
 
             return (
-              <DroppableColumn key={col.key} id={col.key}>
-                <ColumnHeader
-                  label={col.label}
-                  count={items.length}
-                  dotColor={col.dot}
-                />
-                <div className="mt-3 space-y-3">
-                  {visibleItems.map((p) => (
-                    <DraggableCard key={p.id} plan={p} onOpenDetails={onOpenDetails} />
-                  ))}
-
-                  {items.length > INITIAL_VISIBLE && (
-                    <button
-                      type="button"
-                      onClick={() => toggleExpand(col.key)}
-                      className="flex w-full items-center justify-center gap-1.5 rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-3 py-2 text-xs font-medium text-slate-500 transition-colors hover:border-slate-300 hover:bg-slate-100 dark:border-border dark:bg-muted/30 dark:text-muted-foreground dark:hover:bg-muted/40"
+              <div key={col.key} className="kb-col">
+                {/* Column header */}
+                <div className="kb-col-head">
+                  <div className="kb-col-head-row">
+                    <div className="kb-col-dot" style={{ background: col.dot }} />
+                    <span className="kb-col-name">{col.label}</span>
+                    <span
+                      className="kb-col-count"
+                      style={col.countStyle}
                     >
-                      {isExpanded ? (
-                        <>
-                          <ChevronUp className="h-3.5 w-3.5" />
-                          Ver menos
-                        </>
-                      ) : (
-                        <>
-                          <ChevronDown className="h-3.5 w-3.5" />
-                          Ver mais {hiddenCount} {hiddenCount === 1 ? "item" : "itens"}
-                        </>
-                      )}
-                    </button>
-                  )}
+                      {items.length}
+                    </span>
+                  </div>
+                  <button className="kb-col-menu" onClick={() => toggleCollapsed(col.key)} title="Menu">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <circle cx="12" cy="5" r="1" /><circle cx="12" cy="12" r="1" /><circle cx="12" cy="19" r="1" />
+                    </svg>
+                  </button>
                 </div>
-              </DroppableColumn>
+
+                {/* Column body */}
+                {isCol && (
+                  <DroppableColumn id={col.key}>
+                    <div
+                      className="kb-col-body"
+                      style={{ borderTopColor: col.topBorder }}
+                    >
+                      {items.map((p) => (
+                        <DraggableCard key={p.id} plan={p} onOpenDetails={onOpenDetails} />
+                      ))}
+
+                      {items.length === 0 && (
+                        <div style={{
+                          display: "flex",
+                          flexDirection: "column",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          padding: "28px 12px",
+                          textAlign: "center",
+                          opacity: 0.45,
+                        }}>
+                          <div style={{ fontSize: 20, marginBottom: 6 }}>
+                            {col.key === "delivered" ? "✓" : col.key === "blocked" ? "⊘" : "·"}
+                          </div>
+                          <div style={{ fontSize: 11, color: "var(--rf-text-muted)" }}>Nenhum plano</div>
+                        </div>
+                      )}
+
+                      <CreateActionPlanDialog
+                        onCreated={() => {}}
+                        trigger={
+                          <button type="button" className="kb-add-btn">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                              <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
+                            </svg>
+                            Adicionar plano
+                          </button>
+                        }
+                      />
+                    </div>
+                  </DroppableColumn>
+                )}
+              </div>
             )
           })}
-        </div>
-      </div>
 
-      <DragOverlay dropAnimation={null}>
-        {activePlan ? (
-          <div className="w-64 rotate-1 opacity-90">
-            <ActionPlanCard plan={activePlan} />
+          {/* Archived column */}
+          <div className="kb-col">
+            <div
+              className="kb-col-archived-head"
+              style={{ borderRadius: archivedOpen ? "14px 14px 0 0" : 14, borderBottom: archivedOpen ? "none" : undefined }}
+              onClick={() => setArchivedOpen((v) => !v)}
+            >
+              <div className="kb-col-head-row">
+                <div className="kb-col-dot" style={{ background: "var(--rf-text-muted, #3d4455)" }} />
+                <span className="kb-col-name" style={{ color: "var(--rf-text-muted)" }}>ARQUIVADO</span>
+                <span className="kb-col-count">{archivedPlans.length}</span>
+              </div>
+              <svg
+                width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+                style={{ transition: "transform 0.2s", transform: archivedOpen ? "rotate(180deg)" : "none", color: "var(--rf-text-muted)" }}
+              >
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
+            </div>
+
+            {archivedOpen && (
+              <div className="kb-col-archived-body">
+                {archivedPlans.map((p) => (
+                  <ActionPlanCard key={p.id} plan={p} onOpenDetails={onOpenDetails} />
+                ))}
+                {archivedPlans.length === 0 && (
+                  <div style={{ textAlign: "center", padding: "20px 12px", fontSize: 11, color: "var(--rf-text-muted)", opacity: 0.6 }}>
+                    Nenhum plano arquivado
+                  </div>
+                )}
+              </div>
+            )}
           </div>
-        ) : null}
-      </DragOverlay>
-    </DndContext>
+
+          {/* Nova coluna button */}
+          <div className="kb-col-add">
+            <button type="button" className="kb-col-add-btn">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
+              </svg>
+              Nova coluna
+            </button>
+          </div>
+        </div>
+
+        <DragOverlay dropAnimation={null}>
+          {activePlan ? (
+            <div style={{ width: 242, transform: "rotate(1deg)", opacity: 0.9 }}>
+              <ActionPlanCard plan={activePlan} />
+            </div>
+          ) : null}
+        </DragOverlay>
+      </DndContext>
+    </>
   )
 }
