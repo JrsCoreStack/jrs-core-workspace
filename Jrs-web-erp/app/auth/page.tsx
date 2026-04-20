@@ -11,7 +11,7 @@ export default function AuthPage() {
 
   useEffect(() => {
     if (status === "authenticated") {
-      router.push("/home");
+      router.push("/cockpit");
     }
   }, [status, router]);
 

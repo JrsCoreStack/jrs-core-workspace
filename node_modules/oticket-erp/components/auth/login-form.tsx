@@ -55,7 +55,7 @@ export function LoginForm({ onSwitchToRegister, onLogin }: LoginFormProps) {
         if (onLogin) {
           onLogin();
         }
-        router.push("/home");
+        router.push("/cockpit");
         router.refresh();
       }
     } catch (error) {

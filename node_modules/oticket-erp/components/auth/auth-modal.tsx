@@ -1250,8 +1250,8 @@ function LoginForm({ onSwitchTab }: { onSwitchTab: () => void }) {
 
       if (res?.ok) {
         clearLock();
-        // Navegação completa garante que o cookie de sessão seja enviado ao middleware (evita 307 em /home).
-        window.location.assign("/home");
+        // Navegação completa garante que o cookie de sessão seja enviado ao middleware (evita 307 em /cockpit).
+        window.location.assign("/cockpit");
         return;
       }
 

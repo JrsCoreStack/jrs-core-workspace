@@ -10,9 +10,9 @@ export default auth((req) => {
   const publicRoutes = ["/auth", "/api/auth", "/api-proxy"];
   const isPublicRoute = publicRoutes.some((route) => pathname.startsWith(route));
 
-  // Se está na rota de auth e já está logado, redireciona para home
+  // Se está na rota de auth e já está logado, redireciona para o cockpit
   if (pathname.startsWith("/auth") && isLoggedIn) {
-    return NextResponse.redirect(new URL("/home", req.url));
+    return NextResponse.redirect(new URL("/cockpit", req.url));
   }
 
   // Se não está logado e não está em rota pública, redireciona para login
