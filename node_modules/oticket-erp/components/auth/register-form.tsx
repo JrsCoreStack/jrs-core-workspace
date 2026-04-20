@@ -127,8 +127,8 @@ export function RegisterForm({ onSwitchToLogin }: RegisterFormProps) {
   return (
     <div className="min-h-screen bg-background flex">
       {/* Lado esquerdo - Branding */}
-      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-primary/20 via-background to-background relative overflow-hidden">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,_var(--tw-gradient-stops))] from-primary/10 via-transparent to-transparent" />
+      <div className="hidden lg:flex lg:w-1/2 bg-linear-to-br from-primary/20 via-background to-background relative overflow-hidden">
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,var(--tw-gradient-stops))] from-primary/10 via-transparent to-transparent" />
         <div className="relative z-10 flex flex-col justify-between p-12 w-full">
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 rounded-xl bg-primary flex items-center justify-center">
