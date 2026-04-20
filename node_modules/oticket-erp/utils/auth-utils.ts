@@ -1,3 +1,4 @@
+import axios from "axios";
 import { SignInDTO, UserSignIn, UserSignInAlternative, UpdateTokenResponse } from "@/models/auth";
 import api from "@/utils/api";
 
@@ -17,6 +18,16 @@ export async function signInUser(
     return response.data;
   } catch (error) {
     console.error("Sign in error:", error);
+    if (process.env.NODE_ENV === "development" && axios.isAxiosError(error)) {
+      const s = error.response?.status;
+      const d = error.response?.data;
+      console.error(
+        `[auth/login] API ${s ?? "sem resposta"} —`,
+        typeof d === "object" ? JSON.stringify(d) : d,
+        "| baseURL efetivo no servidor:",
+        error.config?.baseURL ?? "(veja API_URL / NEXT_PUBLIC_API_URL)",
+      );
+    }
     return null;
   }
 }

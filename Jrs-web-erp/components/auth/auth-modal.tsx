@@ -1329,7 +1329,6 @@ function LoginForm({ onSwitchTab }: { onSwitchTab: () => void }) {
         <Field
           label="CPF"
           icon={<IconUser />}
-          hint="Use o CPF cadastrado (11 dígitos). Este login não aceita e-mail."
         >
           <FieldInput
             type="text"
