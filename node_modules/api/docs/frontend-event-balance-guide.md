@@ -422,7 +422,7 @@ function EventBalanceList() {
     
     // Criar saque
     await createManualPayout({
-      account_code: 'oticket-grupo',
+      account_code: 'jrs-erp-workspace',
       event_id: eventId,
       amount,
     });
