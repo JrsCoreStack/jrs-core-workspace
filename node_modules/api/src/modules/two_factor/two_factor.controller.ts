@@ -1,9 +1,10 @@
 import { Controller, Post, Body, Req, UseGuards } from '@nestjs/common';
-import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
+import { ApiTags, ApiBearerAuth, ApiExcludeController } from '@nestjs/swagger';
 import { TwoFactorService } from './two_factor.service';
 import { ReturnAuthDTO } from '../auth/dtos/return';
 
-@ApiTags('Autenticação 2FA')
+@ApiExcludeController()
+@ApiTags('Autenticaÿÿo 2FA')
 @ApiBearerAuth()
 @Controller('2fa')
 export class TwoFactorController {
@@ -16,7 +17,7 @@ export class TwoFactorController {
     return this.twoFactorService.generateSecret(email);
   }
 
-  // 2. ValidaÃ§Ã£o do primeiro cÃ³digo e ativaÃ§Ã£o
+  // 2. Valida??o do primeiro c?digo e ativa??o
   @Post('activate')
   async activate(
     @Body('code') code: string,

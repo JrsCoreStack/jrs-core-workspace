@@ -1,5 +1,5 @@
 import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
-import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
+import { ApiTags, ApiBearerAuth, ApiExcludeController } from '@nestjs/swagger';
 import { AuditService } from './audit.service';
 import { AuthGuard } from '../../guards/auth.guard';
 import { AccountGuard } from '../../guards/account.guard';
@@ -8,6 +8,7 @@ import { CurrentAccountId } from '../../decorators/account.decorator';
 import { Roles } from '../../decorators/roles.decorator';
 import { CurrentUserId } from '../../decorators/user.decorator';
 
+@ApiExcludeController()
 @ApiTags('Auditoria')
 @ApiBearerAuth()
 @Controller('audit')

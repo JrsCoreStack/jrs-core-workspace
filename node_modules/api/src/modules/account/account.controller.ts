@@ -1,9 +1,17 @@
 import { Body, Controller, Get, Post } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBody, ApiBearerAuth } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBody,
+  ApiBearerAuth,
+  ApiExcludeController,
+} from '@nestjs/swagger';
 import { AccountService } from './account.service';
 import { CreateAccountDTO } from './dtos/create';
 import { AccountEntity } from './entities/account.entity';
 
+@ApiExcludeController()
 @ApiTags('Contas')
 @Controller('account')
 export class AccountController {

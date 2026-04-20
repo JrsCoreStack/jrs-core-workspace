@@ -1,9 +1,10 @@
 import { Body, Controller, Get, Post } from '@nestjs/common';
-import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
+import { ApiTags, ApiBearerAuth, ApiExcludeController } from '@nestjs/swagger';
 import { BankService } from './bank.service';
 import { CreateBankDTO } from './dtos/create';
 import { BankEntity } from './entities/bank.entity';
 
+@ApiExcludeController()
 @ApiTags('Bancos')
 @ApiBearerAuth()
 @Controller('bank')

@@ -7,13 +7,14 @@ import {
   Post,
   Query,
 } from '@nestjs/common';
-import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
+import { ApiTags, ApiBearerAuth, ApiExcludeController } from '@nestjs/swagger';
 import { FinancialGatewayFeeRuleService } from './financial_gateway_fee_rule.service';
 import { CreateFinancialGatewayFeeRuleDTO } from './dtos/create';
 import { FinancialGatewayFeeRuleEntity } from './entities/financial_gateway_fee_rule.entity';
 import { ReturnFinancialGatewayFeeRuleDTO } from './dtos/return';
 
-@ApiTags('Financeiro ñ Taxas Gateway')
+@ApiExcludeController()
+@ApiTags('Financeiro ù Taxas Gateway')
 @ApiBearerAuth()
 @Controller('financial_gateway_fee_rules')
 export class FinancialGatewayFeeRuleController {
@@ -56,25 +57,25 @@ export class FinancialGatewayFeeRuleController {
     @Query('card_brand') card_brand?: string,
     @Query('installments') installments?: string,
   ): Promise<{ percentage_fee: number; fixed_fee: number }> {
-    // Validar par√¢metros obrigat√≥rios b√°sicos
+    // Validar par‚metros obrigatÛrios b·sicos
     if (!account_code || !gateway || !payment_method) {
       throw new BadRequestException(
-        'Par√¢metros obrigat√≥rios: account_code, gateway, payment_method',
+        'Par‚metros obrigatÛrios: account_code, gateway, payment_method',
       );
     }
 
-    // Para m√©todos que n√£o s√£o PIX, card_brand e installments s√£o obrigat√≥rios
+    // Para mÈtodos que n„o s„o PIX, card_brand e installments s„o obrigatÛrios
     const isPix = payment_method.toUpperCase() === 'PIX';
     
     if (!isPix) {
       if (!card_brand) {
         throw new BadRequestException(
-          'card_brand √© obrigat√≥rio para m√©todos de pagamento que n√£o sejam PIX',
+          'card_brand È obrigatÛrio para mÈtodos de pagamento que n„o sejam PIX',
         );
       }
       if (!installments) {
         throw new BadRequestException(
-          'installments √© obrigat√≥rio para m√©todos de pagamento que n√£o sejam PIX',
+          'installments È obrigatÛrio para mÈtodos de pagamento que n„o sejam PIX',
         );
       }
     }
@@ -85,7 +86,7 @@ export class FinancialGatewayFeeRuleController {
       installmentsNumber = parseInt(installments, 10);
       if (isNaN(installmentsNumber) || installmentsNumber < 1) {
         throw new BadRequestException(
-          'installments deve ser um n√∫mero inteiro maior que zero',
+          'installments deve ser um n˙mero inteiro maior que zero',
         );
       }
     }
@@ -100,7 +101,7 @@ export class FinancialGatewayFeeRuleController {
 
     if (!result) {
       throw new BadRequestException(
-        'Regra de taxa n√£o encontrada para os crit√©rios fornecidos.',
+        'Regra de taxa n„o encontrada para os critÈrios fornecidos.',
       );
     }
 

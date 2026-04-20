@@ -7,7 +7,7 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
+import { ApiTags, ApiBearerAuth, ApiExcludeController } from '@nestjs/swagger';
 import { TransactionService } from './transaction.service';
 import { CreateTransactionDTO } from './dtos/create';
 import { TransactionEntity } from './entities/transaction.entity';
@@ -15,7 +15,8 @@ import { AuthGuard } from 'src/guards/auth.guard';
 import { AccountGuard } from 'src/guards/account.guard';
 import { CurrentAccountId } from 'src/decorators/account.decorator';
 
-@ApiTags('Transações')
+@ApiExcludeController()
+@ApiTags('Transa??es')
 @ApiBearerAuth()
 @Controller('transaction')
 export class TransactionController {

@@ -1,10 +1,11 @@
 import { Body, Controller, Get, Param, Post } from '@nestjs/common';
-import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
+import { ApiTags, ApiBearerAuth, ApiExcludeController } from '@nestjs/swagger';
 import { FinancialAccountService } from './financial_account.service';
 import { CreateFinancialAccountDTO } from './dtos/create';
 import { FinancialAccountEntity } from './entities/financial_account.entity';
 
-@ApiTags('Financeiro ñ Contas')
+@ApiExcludeController()
+@ApiTags('Financeiro ù Contas')
 @ApiBearerAuth()
 @Controller('financial_accounts')
 export class FinancialAccountController {

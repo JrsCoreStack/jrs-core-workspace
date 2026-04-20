@@ -7,7 +7,7 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
+import { ApiTags, ApiBearerAuth, ApiExcludeController } from '@nestjs/swagger';
 import { StatementOrganizationService } from './statement_organization.service';
 import { CreateStatementOrganizationDTO } from './dtos/create';
 import { StatementOrganizationEntity } from './entities/statement_organization.entity';
@@ -17,7 +17,8 @@ import { RoleGuard } from 'src/guards/role.guard';
 import { CurrentAccountId } from 'src/decorators/account.decorator';
 import { Roles } from 'src/decorators/roles.decorator';
 
-@ApiTags('Extrato – Organização')
+@ApiExcludeController()
+@ApiTags('Extrato ? Organiza??o')
 @ApiBearerAuth()
 @Controller('statement_organization')
 export class StatementOrganizationController {

@@ -7,12 +7,13 @@ import {
   Post,
   Put,
 } from '@nestjs/common';
-import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
+import { ApiTags, ApiBearerAuth, ApiExcludeController } from '@nestjs/swagger';
 import { ProductCategoryService } from './product_category.service';
 import { CreateProductCategoryDTO } from './dtos/create';
 import { UpdateProductCategoryDTO } from './dtos/update';
 import { ProductCategoryEntity } from './entities/product_category.entity';
 
+@ApiExcludeController()
 @ApiTags('Categorias de Produto')
 @ApiBearerAuth()
 @Controller('product-category')

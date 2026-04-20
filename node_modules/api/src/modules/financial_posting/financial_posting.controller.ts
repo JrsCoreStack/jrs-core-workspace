@@ -1,9 +1,10 @@
 import { Body, Controller, Post } from '@nestjs/common';
-import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
+import { ApiTags, ApiBearerAuth, ApiExcludeController } from '@nestjs/swagger';
 import { FinancialPostingService } from './financial_posting.service';
 import { CreateTicketSaleDTO } from './dtos/create-ticket-sale.dto';
 
-@ApiTags('Financeiro ñ Postagens')
+@ApiExcludeController()
+@ApiTags('Financeiro ù Postagens')
 @ApiBearerAuth()
 @Controller('financial_posting')
 export class FinancialPostingController {

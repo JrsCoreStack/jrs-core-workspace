@@ -1,10 +1,11 @@
 import { Controller, Get, Param, Query } from '@nestjs/common';
-import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
+import { ApiTags, ApiBearerAuth, ApiExcludeController } from '@nestjs/swagger';
 import { FinancialEntryService } from './financial_entry.service';
 import { FinancialEntryEntity } from './entities/financial_entry.entity';
 import { ListFinancialEntriesQueryDTO } from './dtos/list-query.dto';
 
-@ApiTags('Financeiro ñ LanÁamentos')
+@ApiExcludeController()
+@ApiTags('Financeiro ù Lanùamentos')
 @ApiBearerAuth()
 @Controller('financial_entry')
 export class FinancialEntryController {

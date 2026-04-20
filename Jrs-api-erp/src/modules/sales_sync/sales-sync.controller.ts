@@ -1,9 +1,10 @@
 import { Controller, Get, Post, Query, Param, UseGuards } from '@nestjs/common';
-import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
+import { ApiTags, ApiBearerAuth, ApiExcludeController } from '@nestjs/swagger';
 import { SalesSyncService } from './sales-sync.service';
 import { AuthGuard } from 'src/guards/auth.guard';
 
-@ApiTags('SincronizaÁ„o de Vendas')
+@ApiExcludeController()
+@ApiTags('Sincronizaùùo de Vendas')
 @ApiBearerAuth()
 @Controller('sales-sync')
 // @UseGuards(AuthGuard)
@@ -17,7 +18,7 @@ export class SalesSyncController {
   ) {
     await this.salesSyncService.forceSync(productId, referenceType);
     return {
-      message: 'Sincroniza√ß√£o iniciada manualmente',
+      message: 'SincronizaÁ„o iniciada manualmente',
       productId: productId || 'all',
       referenceType: referenceType || 'all',
     };
@@ -34,21 +35,21 @@ export class SalesSyncController {
     if (isNaN(saleIdNumber)) {
       return {
         success: false,
-        message: 'saleId deve ser um n√∫mero v√°lido',
+        message: 'saleId deve ser um n˙mero v·lido',
       };
     }
 
     if (!productId) {
       return {
         success: false,
-        message: 'productId √© obrigat√≥rio (ex: OTICKET_EVENTOS)',
+        message: 'productId È obrigatÛrio (ex: OTICKET_EVENTOS)',
       };
     }
 
     if (!referenceType) {
       return {
         success: false,
-        message: 'referenceType √© obrigat√≥rio (ex: TICKET_ONLINE_SALE)',
+        message: 'referenceType È obrigatÛrio (ex: TICKET_ONLINE_SALE)',
       };
     }
 

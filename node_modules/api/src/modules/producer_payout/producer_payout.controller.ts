@@ -1,11 +1,12 @@
 import { Controller, Get, Put, Post, Param, Query, Body } from '@nestjs/common';
-import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
+import { ApiTags, ApiBearerAuth, ApiExcludeController } from '@nestjs/swagger';
 import { ProducerPayoutService } from './producer_payout.service';
 import { PaymentRequestDTO } from './dtos/payment-request.dto';
 import { MarkAsPaidDTO } from './dtos/payment-request.dto';
 import { CreateManualPayoutDTO } from './dtos/create-manual-payout.dto';
 import { ManualPayoutEntity } from './entities/manual_payout.entity';
 
+@ApiExcludeController()
 @ApiTags('Pagamentos a Produtores')
 @ApiBearerAuth()
 @Controller('producer_payout')

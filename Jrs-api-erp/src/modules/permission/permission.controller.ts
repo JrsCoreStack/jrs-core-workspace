@@ -1,5 +1,5 @@
 import { Controller, Get, Param, UseGuards } from '@nestjs/common';
-import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
+import { ApiTags, ApiBearerAuth, ApiExcludeController } from '@nestjs/swagger';
 import { PermissionService } from './permission.service';
 import { PermissionEntity } from './entities/permission.entity';
 import { AuthGuard } from 'src/guards/auth.guard';
@@ -10,7 +10,8 @@ import { Permission } from 'src/utils/enums/permission.enum';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 
-@ApiTags('Permissıes')
+@ApiExcludeController()
+@ApiTags('Permissùes')
 @ApiBearerAuth()
 @Controller('permission')
 @UseGuards(AuthGuard, AccountGuard, PermissionGuard)
@@ -41,7 +42,7 @@ export class PermissionController {
     });
 
     if (!permission) {
-      throw new Error(`Permiss√£o com ID ${id} n√£o encontrada.`);
+      throw new Error(`Permiss„o com ID ${id} n„o encontrada.`);
     }
 
     return permission;
