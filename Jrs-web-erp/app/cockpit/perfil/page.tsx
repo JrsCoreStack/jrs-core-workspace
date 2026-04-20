@@ -2,450 +2,394 @@
 
 import { Header } from "@/components/ui/header"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
 import { COCKPIT_MAIN_CLASS } from "@/lib/cockpit/cockpit-page-shell"
 import {
-  User,
+  Bell,
+  CreditCard,
+  LayoutGrid,
   Lock,
-  Shield,
-  Monitor,
-  Users,
-  Zap,
-  DollarSign,
-  AlertTriangle,
   LogOut,
-  Trash2,
-  ChevronRight,
-  Check,
-  Plus,
-  Settings,
+  User as UserIcon,
+  Users,
 } from "lucide-react"
-import Link from "next/link"
 import { signOut, useSession } from "next-auth/react"
 import { useAccountStore } from "@/stores/account-store"
-import { useState, useMemo } from "react"
-import { toast } from "sonner"
+import { useMemo, useState } from "react"
+import { BillingSection } from "@/components/cockpit/perfil/billing-section"
+import { MembersSection } from "@/components/cockpit/perfil/members-section"
+import { NotificationsSection } from "@/components/cockpit/perfil/notifications-section"
+import { ProfileEdit, ProfileView } from "@/components/cockpit/perfil/profile-section"
+import { SecuritySection } from "@/components/cockpit/perfil/security-section"
+import { WorkspaceSection } from "@/components/cockpit/perfil/workspace-section"
 
-/* ─── Avatar colors ─── */
-const AVATAR_GRADIENTS = [
-  "from-primary to-chart-2",
-  "from-orange-400 to-red-500",
-  "from-emerald-400 to-green-600",
-  "from-pink-500 to-purple-600",
-  "from-sky-400 to-blue-600",
-] as const
+type TabId =
+  | "workspace"
+  | "membros"
+  | "faturamento"
+  | "seguranca"
+  | "notificacoes"
+  | "perfil"
 
-/* ─── Helpers ─── */
-function getInitials(name?: string | null): string {
+type NavItem = {
+  id: TabId
+  label: string
+  icon: typeof UserIcon
+  group: "workspace" | "conta"
+  socioOnly?: boolean
+  badge?: string
+}
+
+const TAB_HEADER: Record<
+  TabId,
+  { title: string; description: string }
+> = {
+  workspace: {
+    title: "Workspace",
+    description: "Gerencie identidade e preferências regionais do workspace.",
+  },
+  membros: {
+    title: "Membros",
+    description: "Gerencie os membros do workspace e suas permissões.",
+  },
+  faturamento: {
+    title: "Faturamento",
+    description: "Gerencie seu plano e histórico de pagamentos.",
+  },
+  seguranca: {
+    title: "Segurança",
+    description:
+      "Gerencie sua senha, autenticação em dois fatores e sessões ativas.",
+  },
+  notificacoes: {
+    title: "Notificações",
+    description: "Escolha como e quando o sistema te avisa.",
+  },
+  perfil: {
+    title: "Meu Perfil",
+    description: "Sua identidade e atividade no workspace.",
+  },
+}
+
+const NAV_ITEMS: NavItem[] = [
+  { id: "workspace", label: "Workspace", icon: LayoutGrid, group: "workspace", socioOnly: true },
+  {
+    id: "membros",
+    label: "Membros",
+    icon: Users,
+    group: "workspace",
+    socioOnly: true,
+    badge: "8",
+  },
+  {
+    id: "faturamento",
+    label: "Faturamento",
+    icon: CreditCard,
+    group: "workspace",
+    socioOnly: true,
+  },
+  { id: "seguranca", label: "Segurança", icon: Lock, group: "conta" },
+  { id: "notificacoes", label: "Notificações", icon: Bell, group: "conta" },
+  { id: "perfil", label: "Meu Perfil", icon: UserIcon, group: "conta" },
+]
+
+function getInitials(name?: string | null) {
   if (!name) return "U"
   const parts = name.trim().split(" ")
   if (parts.length === 1) return parts[0]!.slice(0, 2).toUpperCase()
   return (parts[0]![0]! + parts[parts.length - 1]![0]!).toUpperCase()
 }
 
-function getLevelLabel(level?: string): string {
+function getLevelLabel(level?: string) {
   if (!level) return "Membro"
   const map: Record<string, string> = {
-    admin: "Admin",
+    admin: "Sócio",
+    owner: "Sócio",
     manager: "Gestor",
-    owner: "Proprietário",
     member: "Membro",
-    viewer: "Visualizador",
+    viewer: "Membro",
   }
   return map[level.toLowerCase()] ?? level
 }
 
-/* ─── Stat cell ─── */
-function StatCell({ value, label }: { value: string | number; label: string }) {
-  return (
-    <div className="flex flex-col items-center justify-center py-4 text-center">
-      <span className="font-display text-2xl font-extrabold tracking-tight text-foreground">
-        {value}
-      </span>
-      <span className="mt-1 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-        {label}
-      </span>
-    </div>
-  )
-}
-
-/* ─── Section wrapper ─── */
-function Section({
-  icon,
-  label,
-  iconClass = "text-muted-foreground",
-  danger = false,
-  children,
-}: {
-  icon: React.ReactNode
-  label: string
-  iconClass?: string
-  danger?: boolean
-  children: React.ReactNode
-}) {
-  return (
-    <div className="overflow-hidden rounded-xl border border-border bg-card">
-      <div className="flex items-center gap-2.5 border-b border-border px-4 py-3">
-        <span className={cn("flex h-4 w-4 items-center justify-center", iconClass, danger && "text-destructive")}>
-          {icon}
-        </span>
-        <span
-          className={cn(
-            "text-[11px] font-bold uppercase tracking-widest",
-            danger ? "text-destructive" : "text-muted-foreground"
-          )}
-        >
-          {label}
-        </span>
-      </div>
-      <div className="divide-y divide-border">{children}</div>
-    </div>
-  )
-}
-
-/* ─── Row link ─── */
-function RowLink({
-  icon,
-  iconClass = "bg-muted text-muted-foreground",
-  label,
-  sub,
-  href,
-  badge,
-  danger = false,
-}: {
-  icon: React.ReactNode
-  iconClass?: string
-  label: string
-  sub?: string
-  href?: string
-  badge?: React.ReactNode
-  danger?: boolean
-}) {
-  const inner = (
-    <div className={cn("flex items-center gap-3 px-4 py-3.5 transition-colors", danger ? "hover:bg-destructive/5" : "hover:bg-muted/40")}>
-      <div className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-lg", iconClass)}>
-        {icon}
-      </div>
-      <div className="min-w-0 flex-1">
-        <p className={cn("text-sm font-medium", danger ? "text-destructive" : "text-card-foreground")}>
-          {label}
-        </p>
-        {sub && <p className="mt-0.5 text-[11px] text-muted-foreground">{sub}</p>}
-      </div>
-      <div className="flex shrink-0 items-center gap-2">
-        {badge}
-        <ChevronRight className={cn("h-4 w-4", danger ? "text-destructive/60" : "text-muted-foreground/50")} />
-      </div>
-    </div>
-  )
-
-  if (href) {
-    return <Link href={href} className="block cursor-pointer">{inner}</Link>
-  }
-  return <div className="cursor-pointer">{inner}</div>
-}
-
-/* ─── Main ─── */
 export default function PerfilPage() {
   const { data: session } = useSession()
   const currentAccount = useAccountStore((s) => s.currentAccount)
 
   const userName = session?.user?.name ?? currentAccount?.name ?? "Usuário"
   const userEmail = session?.user?.email ?? currentAccount?.email ?? ""
-  const userLevel = currentAccount?.level ?? ""
+  const userLevel = currentAccount?.level ?? "admin"
   const workspaceName = currentAccount?.name ?? "Workspace"
-
   const initials = useMemo(() => getInitials(userName), [userName])
+  const levelLabel = getLevelLabel(userLevel)
 
-  const [selectedGradient, setSelectedGradient] = useState(0)
-  const [name, setName] = useState(() => {
-    const parts = userName.trim().split(" ")
-    return {
-      first: parts[0] ?? "",
-      last: parts.slice(1).join(" "),
-    }
-  })
-  const [cargo, setCargo] = useState("Diretor de Operações")
-  const [email, setEmail] = useState(userEmail)
-  const [saving, setSaving] = useState(false)
+  const isSocio =
+    userLevel.toLowerCase() === "admin" || userLevel.toLowerCase() === "owner"
+
+  const [activeTab, setActiveTab] = useState<TabId>("perfil")
+  const [editing, setEditing] = useState(false)
   const [signingOut, setSigningOut] = useState(false)
-
-  async function handleSave() {
-    setSaving(true)
-    await new Promise((r) => setTimeout(r, 700))
-    toast.success("Perfil atualizado com sucesso.")
-    setSaving(false)
-  }
 
   async function handleSignOut() {
     setSigningOut(true)
     try {
       await signOut({ callbackUrl: "/auth" })
     } catch {
-      toast.error("Erro ao sair. Tente novamente.")
       setSigningOut(false)
     }
   }
 
+  const workspaceNav = NAV_ITEMS.filter((i) => i.group === "workspace")
+  const contaNav = NAV_ITEMS.filter((i) => i.group === "conta")
+
+  const headerMeta =
+    activeTab === "perfil" && editing
+      ? {
+          title: "Editar perfil",
+          description: "Atualize foto, dados pessoais e preferências de exibição.",
+        }
+      : TAB_HEADER[activeTab]
+
   return (
     <>
       <Header
-        title="Perfil"
-        description="Gerencie suas informações pessoais e configurações de conta"
-        actions={
-          <Button asChild variant="outline" size="sm" className="gap-2 bg-transparent">
-            <Link href="/cockpit/perfil/preferencias">
-              <Settings className="h-4 w-4" />
-              Preferências
-            </Link>
-          </Button>
-        }
+        title={headerMeta.title}
+        description={headerMeta.description}
+        displayTitle
       />
 
-      <main className={COCKPIT_MAIN_CLASS}>
-        <div className="mx-auto max-w-2xl space-y-4">
-
-          {/* Profile header card */}
-          <div className="overflow-hidden rounded-xl border border-border bg-card">
-            <div className="relative h-20 bg-linear-to-br from-primary/20 via-primary/10 to-chart-2/10" />
-            <div className="px-5 pb-5">
-              {/* Avatar */}
-              <div className="-mt-9 mb-3 inline-block">
-                <div                   className={cn(
-                    "flex h-[72px] w-[72px] items-center justify-center rounded-full bg-linear-to-br border-[3px] border-card shadow-md",
-                    AVATAR_GRADIENTS[selectedGradient]
-                  )}>
-                  <span className="font-display text-2xl font-extrabold text-white">
-                    {initials}
-                  </span>
-                </div>
-              </div>
-
-              <div className="mb-3">
-                <h2 className="font-display text-xl font-extrabold tracking-tight text-foreground">
-                  {userName}
-                </h2>
-                <p className="mt-0.5 text-sm text-muted-foreground">
-                  {cargo} · {workspaceName}
-                </p>
-              </div>
-
-              <div className="flex flex-wrap gap-2">
-                <span className="rounded-full border border-primary/25 bg-primary/10 px-2.5 py-1 text-[11px] font-semibold text-primary">
-                  {getLevelLabel(userLevel)}
-                </span>
-                {currentAccount?.level === "manager" || currentAccount?.level === "admin" ? (
-                  <span className="rounded-full border border-border bg-muted/60 px-2.5 py-1 text-[11px] font-semibold text-muted-foreground">
-                    Gestor
-                  </span>
-                ) : null}
-                <span className="rounded-full border border-amber-500/25 bg-amber-500/10 px-2.5 py-1 text-[11px] font-semibold text-amber-600">
-                  Pro
-                </span>
-              </div>
-            </div>
-
-            {/* Stats */}
-            <div className="grid grid-cols-3 divide-x divide-border border-t border-border">
-              <StatCell value="38" label="Rituais" />
-              <StatCell value="92%" label="Presença" />
-              <StatCell value="24" label="Planos" />
-            </div>
+      <main
+        className={cn(
+          COCKPIT_MAIN_CLASS,
+          "bg-muted/35 dark:bg-background"
+        )}
+      >
+        <div className="mx-auto w-full max-w-6xl">
+          {/* Mobile nav — horizontal pills */}
+          <div className="mb-4 flex gap-1.5 overflow-x-auto pb-1 md:hidden">
+            {NAV_ITEMS.map((item) => {
+              const disabled = item.socioOnly && !isSocio
+              const Icon = item.icon
+              const active = activeTab === item.id && !editing
+              return (
+                <button
+                  key={item.id}
+                  disabled={disabled}
+                  onClick={() => {
+                    setActiveTab(item.id)
+                    setEditing(false)
+                  }}
+                  className={cn(
+                    "inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-[12px] font-semibold transition-colors",
+                    active
+                      ? "border-primary/30 bg-primary/10 text-primary"
+                      : "border-border bg-card text-muted-foreground hover:text-foreground",
+                    disabled && "cursor-not-allowed opacity-50"
+                  )}
+                >
+                  <Icon className="size-3.5" strokeWidth={1.9} />
+                  {item.label}
+                </button>
+              )
+            })}
           </div>
 
-          {/* Personal info */}
-          <Section
-            icon={<User className="h-4 w-4" />}
-            label="Informações pessoais"
-          >
-            <div className="space-y-4 p-4">
-              {/* Avatar picker */}
-              <div>
-                <p className="mb-2.5 text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
-                  Avatar
-                </p>
-                <div className="flex flex-wrap gap-2.5">
-                  {AVATAR_GRADIENTS.map((g, i) => (
-                    <button
-                      key={i}
-                      onClick={() => setSelectedGradient(i)}
-                    className={cn(
-                      "relative flex h-11 w-11 items-center justify-center rounded-full bg-linear-to-br font-bold text-white transition-all hover:scale-105",
-                        g,
-                        selectedGradient === i && "ring-2 ring-primary ring-offset-2 ring-offset-card"
-                      )}
-                    >
-                      {initials}
-                      {selectedGradient === i && (
-                        <span className="absolute -bottom-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-primary">
-                          <Check className="h-2.5 w-2.5 text-white" />
-                        </span>
-                      )}
-                    </button>
-                  ))}
-                  <button className="flex h-11 w-11 items-center justify-center rounded-full border-2 border-dashed border-border text-muted-foreground transition-colors hover:border-primary hover:text-primary">
-                    <Plus className="h-4 w-4" />
-                  </button>
+          <div className="grid gap-6 md:grid-cols-[252px_1fr] md:gap-8">
+            {/* Sidebar — fundo cinza Orbit + item ativo com barra roxa à esquerda */}
+            <aside className="hidden self-start overflow-hidden rounded-2xl border border-border/60 bg-[#f3f4f6] shadow-sm dark:border-border dark:bg-card/40 md:block">
+              {/* User summary */}
+              <div className="flex items-center gap-3 border-b border-border/60 bg-white/60 px-4 py-4 dark:border-border dark:bg-transparent">
+                <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-linear-to-br from-sky-500 to-blue-600 shadow-sm ring-2 ring-white dark:ring-card">
+                  <span className="text-[13px] font-bold text-white">{initials}</span>
                 </div>
-              </div>
-
-              {/* Name fields */}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <p className="mb-1.5 text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
-                    Nome
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-[13px] font-semibold leading-tight text-foreground">
+                    {userName}
                   </p>
-                  <Input
-                    value={name.first}
-                    onChange={(e) => setName((n) => ({ ...n, first: e.target.value }))}
-                    className="bg-background"
-                  />
-                </div>
-                <div>
-                  <p className="mb-1.5 text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
-                    Sobrenome
+                  <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
+                    {levelLabel} — {workspaceName}
                   </p>
-                  <Input
-                    value={name.last}
-                    onChange={(e) => setName((n) => ({ ...n, last: e.target.value }))}
-                    className="bg-background"
-                  />
                 </div>
               </div>
 
-              <div>
-                <p className="mb-1.5 text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
-                  Cargo
-                </p>
-                <Input
-                  value={cargo}
-                  onChange={(e) => setCargo(e.target.value)}
-                  className="bg-background"
+              <div className="p-2 pb-3">
+                <NavGroup
+                  label="Workspace"
+                  items={workspaceNav}
+                  activeTab={activeTab}
+                  editing={editing}
+                  isSocio={isSocio}
+                  onSelect={(id) => {
+                    setActiveTab(id)
+                    setEditing(false)
+                  }}
                 />
-              </div>
 
-              <div>
-                <p className="mb-1.5 text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
-                  E-mail
-                </p>
-                <Input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="bg-background"
+                <div className="my-1 h-px bg-border" />
+
+                <NavGroup
+                  label="Minha conta"
+                  items={contaNav}
+                  activeTab={activeTab}
+                  editing={editing}
+                  isSocio={isSocio}
+                  onSelect={(id) => {
+                    setActiveTab(id)
+                    setEditing(false)
+                  }}
                 />
-              </div>
 
-              <Button
-                onClick={handleSave}
-                disabled={saving}
-                size="sm"
-                className="gap-2"
-              >
-                {saving ? "Salvando…" : "Salvar alterações"}
-              </Button>
-            </div>
-          </Section>
+                <div className="my-1 h-px bg-border" />
 
-          {/* Security */}
-          <Section
-            icon={<Lock className="h-4 w-4" />}
-            label="Conta & Segurança"
-            iconClass="text-primary"
-          >
-            <RowLink
-              icon={<Lock className="h-4 w-4" />}
-              iconClass="bg-primary/10 text-primary"
-              label="Alterar senha"
-              sub="Última alteração: 45 dias atrás"
-              href="#"
-            />
-            <RowLink
-              icon={<Shield className="h-4 w-4" />}
-              iconClass="bg-emerald-500/10 text-emerald-500"
-              label="Autenticação em 2 fatores"
-              sub="Ativada via e-mail"
-              href="#"
-              badge={
-                <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-500 ring-1 ring-emerald-500/20">
-                  Ativo
-                </span>
-              }
-            />
-            <RowLink
-              icon={<Monitor className="h-4 w-4" />}
-              iconClass="bg-muted text-muted-foreground"
-              label="Sessões ativas"
-              sub="2 dispositivos conectados"
-              href="#"
-            />
-          </Section>
-
-          {/* Workspace */}
-          <Section
-            icon={<Users className="h-4 w-4" />}
-            label={`Workspace — ${workspaceName}`}
-            iconClass="text-amber-500"
-          >
-            <RowLink
-              icon={<Users className="h-4 w-4" />}
-              iconClass="bg-amber-500/10 text-amber-500"
-              label="Gerenciar membros"
-              sub="12 membros ativos"
-              href="#"
-            />
-            <RowLink
-              icon={<Zap className="h-4 w-4" />}
-              iconClass="bg-chart-2/10 text-chart-2"
-              label="Integrações"
-              sub="Google Calendar, Slack"
-              href="/cockpit/integracoes"
-            />
-            <RowLink
-              icon={<DollarSign className="h-4 w-4" />}
-              iconClass="bg-muted text-muted-foreground"
-              label="Plano e faturamento"
-              sub="Pro · Próx. cobrança: 01/05/2026"
-              href="#"
-            />
-          </Section>
-
-          {/* Danger zone */}
-          <Section
-            icon={<AlertTriangle className="h-4 w-4" />}
-            label="Zona de perigo"
-            danger
-          >
-            <div
-              className="flex cursor-pointer items-center gap-3 px-4 py-3.5 transition-colors hover:bg-destructive/5"
-              onClick={handleSignOut}
-            >
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-destructive/10 text-destructive">
-                <LogOut className="h-4 w-4" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium text-destructive">
+                {/* Sign out */}
+                <button
+                  onClick={handleSignOut}
+                  disabled={signingOut}
+                  className="flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-[13px] font-medium text-destructive transition-colors hover:bg-destructive/10 disabled:opacity-60"
+                >
+                  <LogOut className="size-4" strokeWidth={1.8} />
                   {signingOut ? "Saindo…" : "Sair da conta"}
-                </p>
-                <p className="mt-0.5 text-[11px] text-muted-foreground">Encerrar esta sessão</p>
+                </button>
               </div>
-              <ChevronRight className="h-4 w-4 shrink-0 text-destructive/60" />
-            </div>
-            <div className="flex cursor-pointer items-center gap-3 px-4 py-3.5 transition-colors hover:bg-destructive/5">
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-destructive/10 text-destructive">
-                <Trash2 className="h-4 w-4" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium text-destructive">Excluir minha conta</p>
-                <p className="mt-0.5 text-[11px] text-muted-foreground">Esta ação é irreversível</p>
-              </div>
-              <ChevronRight className="h-4 w-4 shrink-0 text-destructive/60" />
-            </div>
-          </Section>
+            </aside>
 
+            {/* Painel principal — branco, como Orbit */}
+            <section className="min-w-0 rounded-2xl border border-border/70 bg-card px-5 py-6 shadow-sm sm:px-8 sm:py-8 dark:border-border">
+              {!isSocio && activeTab !== "seguranca" && activeTab !== "notificacoes" && activeTab !== "perfil" && (
+                <div className="mb-4 flex items-start gap-3 rounded-xl border border-amber-500/25 bg-amber-500/10 px-4 py-3">
+                  <Lock className="mt-0.5 size-4 shrink-0 text-amber-600" strokeWidth={1.8} />
+                  <div>
+                    <p className="text-[13px] font-semibold text-amber-600">
+                      Acesso restrito
+                    </p>
+                    <p className="mt-0.5 text-[12px] text-amber-600/80">
+                      As seções Workspace, Membros e Faturamento são visíveis apenas
+                      para Sócios.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {activeTab === "workspace" && isSocio && (
+                <WorkspaceSection workspaceName={workspaceName} />
+              )}
+              {activeTab === "membros" && isSocio && <MembersSection />}
+              {activeTab === "faturamento" && isSocio && <BillingSection />}
+              {activeTab === "seguranca" && <SecuritySection />}
+              {activeTab === "notificacoes" && (
+                <NotificationsSection userEmail={userEmail} />
+              )}
+              {activeTab === "perfil" && !editing && (
+                <ProfileView
+                  userName={userName}
+                  userEmail={userEmail}
+                  initials={initials}
+                  workspaceName={workspaceName}
+                  levelLabel={levelLabel}
+                  onEdit={() => setEditing(true)}
+                />
+              )}
+              {activeTab === "perfil" && editing && (
+                <ProfileEdit
+                  userName={userName}
+                  userEmail={userEmail}
+                  initials={initials}
+                  onBack={() => setEditing(false)}
+                />
+              )}
+
+              {/* Mobile sign out */}
+              <div className="mt-8 md:hidden">
+                <Button
+                  variant="outline"
+                  className="w-full gap-2 border-destructive/30 bg-transparent text-destructive hover:bg-destructive/10 hover:text-destructive"
+                  onClick={handleSignOut}
+                  disabled={signingOut}
+                >
+                  <LogOut className="size-4" />
+                  {signingOut ? "Saindo…" : "Sair da conta"}
+                </Button>
+              </div>
+            </section>
+          </div>
         </div>
       </main>
     </>
+  )
+}
+
+/* ─────────────── Nav group ─────────────── */
+function NavGroup({
+  label,
+  items,
+  activeTab,
+  editing,
+  isSocio,
+  onSelect,
+}: {
+  label: string
+  items: NavItem[]
+  activeTab: TabId
+  editing: boolean
+  isSocio: boolean
+  onSelect: (id: TabId) => void
+}) {
+  return (
+    <div className="space-y-0.5">
+      <p className="px-3 pb-1.5 pt-2 text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground/90">
+        {label}
+      </p>
+      {items.map((item) => {
+        const Icon = item.icon
+        const locked = item.socioOnly && !isSocio
+        const active = activeTab === item.id && !editing && !locked
+        return (
+          <button
+            key={item.id}
+            disabled={locked}
+            onClick={() => !locked && onSelect(item.id)}
+            className={cn(
+              "group relative flex w-full items-center gap-2.5 overflow-hidden rounded-lg py-2 pr-2 pl-3 text-left text-[13px] font-medium transition-colors",
+              active
+                ? "bg-[#ede9fe]/90 text-primary shadow-[inset_0_0_0_1px_rgba(123,97,255,0.12)] dark:bg-primary/12 dark:text-primary"
+                : "text-muted-foreground hover:bg-black/[0.04] hover:text-foreground dark:hover:bg-white/[0.06]",
+              locked && "cursor-not-allowed opacity-45 hover:bg-transparent hover:text-muted-foreground"
+            )}
+          >
+            {active && (
+              <span
+                className="absolute left-0 top-1/2 h-[22px] w-[3px] -translate-y-1/2 rounded-r-sm bg-primary"
+                aria-hidden
+              />
+            )}
+            <Icon
+              className={cn(
+                "relative z-[1] size-4 shrink-0",
+                active ? "text-primary" : "text-muted-foreground group-hover:text-foreground"
+              )}
+              strokeWidth={1.8}
+            />
+            <span className="relative z-[1] flex-1">{item.label}</span>
+            {item.badge && (
+              <span
+                className={cn(
+                  "rounded-full px-1.5 py-0.5 text-[10px] font-bold",
+                  active
+                    ? "bg-primary/20 text-primary"
+                    : "bg-muted text-muted-foreground"
+                )}
+              >
+                {item.badge}
+              </span>
+            )}
+            {locked && (
+              <span className="text-[9.5px] font-semibold uppercase tracking-wider text-muted-foreground/70">
+                Sócio
+              </span>
+            )}
+          </button>
+        )
+      })}
+    </div>
   )
 }

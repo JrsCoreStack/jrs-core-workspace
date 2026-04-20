@@ -2,7 +2,12 @@ import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import type { NextAuthConfig } from "next-auth";
 import { signInUser } from "@/utils/auth-utils";
-import { SignInDTO } from "@/models/auth";
+import {
+  SignInDTO,
+  type Account,
+  type UserSignIn,
+  type UserSignInAlternative,
+} from "@/models/auth";
 
 export const config = {
   pages: {
@@ -102,22 +107,53 @@ export const config = {
           const data = await signInUser(signInData);
           if (!data) return null;
 
-          // Shape da API: { user: { id, name, email, cpf }, account, accounts, current_account_id, role, permissions, token }
-          const anyData = data as Record<string, unknown>;
-          const userObj = (anyData.user ?? {}) as Record<string, unknown>;
-          const token = (anyData.token ?? anyData.accessToken) as string | undefined;
+          type LoginPayload = UserSignIn | UserSignInAlternative;
+          const payload = data as LoginPayload & { current_account_id?: string };
+
+          let id: string;
+          let email: string;
+          let name: string;
+          let token: string | undefined;
+          let accounts: Account[] = [];
+          let role: string | undefined;
+          let permissions: string[] = [];
+
+          if ("user" in data && data.user) {
+            const u = data.user;
+            id = String(u.id ?? u._id ?? "");
+            email = u.email ?? "";
+            name = (u.name ?? u.email ?? "") || "";
+            token = data.token ?? data.accessToken;
+            accounts = data.accounts ?? [];
+            role = data.role;
+            permissions = data.permissions ?? [];
+          } else {
+            const alt = data as UserSignInAlternative;
+            id = alt.id;
+            email = alt.email;
+            name = (alt.name ?? alt.email ?? "") || "";
+            token = alt.token ?? alt.accessToken;
+            accounts = alt.accounts ?? [];
+            role = alt.role;
+            permissions = alt.permissions ?? [];
+          }
 
           if (!token) return null;
 
+          const currentAccountId =
+            typeof payload.current_account_id === "string"
+              ? payload.current_account_id
+              : undefined;
+
           return {
-            id: String(userObj.id ?? userObj._id ?? ""),
-            email: (userObj.email as string) ?? "",
-            name: (userObj.name as string) ?? (userObj.email as string) ?? "",
+            id,
+            email,
+            name,
             accessToken: token,
-            accounts: (anyData.accounts as unknown[]) ?? [],
-            role: anyData.role as string | undefined,
-            permissions: (anyData.permissions as string[]) ?? [],
-            currentAccountId: anyData.current_account_id as string | undefined,
+            accounts,
+            role,
+            permissions,
+            currentAccountId,
           };
         } catch (error) {
           console.error("Auth authorize error:", error);
