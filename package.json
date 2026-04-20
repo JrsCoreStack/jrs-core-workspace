@@ -1,6 +1,7 @@
 {
     "name": "jrs-erp-workspace",
     "private": true,
+    "packageManager": "npm@10.9.2",
     "workspaces": [
       "Jrs-api-erp",
       "Jrs-web-erp"
