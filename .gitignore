@@ -1,1 +1,4 @@
 node_modules
+
+# Monorepo: só o lockfile na raiz; lock dentro do app quebra deteção do Turbopack/Next
+Jrs-web-erp/package-lock.json
