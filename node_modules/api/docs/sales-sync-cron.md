@@ -1,6 +1,6 @@
 # Cron Job de Sincronização de Vendas
 
-Este documento explica como funciona o cron job que monitora as tabelas de vendas dos produtos (OTicket Eventos, OTicket Play, etc.) e sincroniza as vendas para o ERP.
+Este documento explica como funciona o cron job que monitora as tabelas de vendas dos produtos configurados (ex.: integração **JRS_EXTERNAL_SALES**, OTicket Play, etc.) e sincroniza as vendas para o ERP.
 
 ## 🎯 Suporte a Múltiplos Produtos
 
@@ -12,7 +12,7 @@ O sistema foi projetado para suportar **múltiplos produtos** de forma escaláve
 ## 📋 Visão Geral
 
 O cron job executa automaticamente a cada **5 minutos** e:
-1. Conecta ao banco de dados do OTicket Eventos
+1. Conecta ao banco de dados do produto configurado (ex.: `JRS_EXTERNAL_SALES`)
 2. Busca vendas novas na tabela `clients_sale`
 3. Verifica se já foram processadas (evita duplicatas)
 4. Processa e envia para o ERP via `FinancialPostingService`
@@ -25,13 +25,13 @@ O cron job executa automaticamente a cada **5 minutos** e:
 Adicione as variáveis de ambiente para cada produto no arquivo `.env.local`:
 
 ```env
-# Banco do produto OTicket Eventos
-OTICKET_EVENTOS_DB_HOST=seu-host-aqui
-OTICKET_EVENTOS_DB_PORT=5432
-OTICKET_EVENTOS_DB_USERNAME=seu-usuario
-OTICKET_EVENTOS_DB_PASSWORD=sua-senha
-OTICKET_EVENTOS_DB_DATABASE=nome-do-banco
-OTICKET_EVENTOS_DB_SSL=true
+# Banco do projeto integrado de vendas (productId JRS_EXTERNAL_SALES)
+JRS_EXTERNAL_SALES_DB_HOST=seu-host-aqui
+JRS_EXTERNAL_SALES_DB_PORT=5432
+JRS_EXTERNAL_SALES_DB_USERNAME=seu-usuario
+JRS_EXTERNAL_SALES_DB_PASSWORD=sua-senha
+JRS_EXTERNAL_SALES_DB_DATABASE=nome-do-banco
+JRS_EXTERNAL_SALES_DB_SSL=true
 
 # Banco do produto OTicket Play (quando estiver pronto)
 OTICKET_PLAY_DB_HOST=seu-host-aqui
@@ -62,7 +62,7 @@ O sistema usa uma arquitetura baseada em **configuração** (`products.config.ts
 
 ### Tipos de Vendas Sincronizadas
 
-Cada produto pode ter seus próprios tipos de vendas. Por padrão, o OTicket Eventos tem:
+Cada produto pode ter seus próprios tipos de vendas. Por padrão, o produto **JRS_EXTERNAL_SALES** tem:
 
 1. **TICKET_ONLINE_SALE** (`sale_type = 'online'`)
    - Vendas de ingressos online
@@ -79,7 +79,7 @@ Cada produto pode ter seus próprios tipos de vendas. Por padrão, o OTicket Eve
 ### Rastreamento de Sincronização
 
 A tabela `erp_sales_sync_status` armazena:
-- `sync_type`: Tipo de sincronização no formato `PRODUCT_ID_REFERENCE_TYPE` (ex: `OTICKET_EVENTOS_TICKET_ONLINE_SALE`)
+- `sync_type`: Tipo de sincronização no formato `PRODUCT_ID_REFERENCE_TYPE` (ex: `JRS_EXTERNAL_SALES_TICKET_ONLINE_SALE`)
 - `last_synced_id`: Último ID processado (evita reprocessar)
 - `last_synced_date`: Última data processada
 - `total_synced`: Total de vendas sincronizadas
@@ -101,10 +101,10 @@ Você pode forçar uma sincronização manualmente via API:
 POST /sales-sync/sync
 
 # Sincronizar todos os tipos de um produto específico
-POST /sales-sync/sync?productId=OTICKET_EVENTOS
+POST /sales-sync/sync?productId=JRS_EXTERNAL_SALES
 
 # Sincronizar tipo específico de um produto específico
-POST /sales-sync/sync?productId=OTICKET_EVENTOS&referenceType=TICKET_ONLINE_SALE
+POST /sales-sync/sync?productId=JRS_EXTERNAL_SALES&referenceType=TICKET_ONLINE_SALE
 POST /sales-sync/sync?productId=OTICKET_PLAY&referenceType=TICKET_ONLINE_SALE
 ```
 
@@ -119,8 +119,8 @@ Resposta:
 {
   "products": [
     {
-      "productId": "OTICKET_EVENTOS",
-      "productName": "OTicket Eventos",
+      "productId": "JRS_EXTERNAL_SALES",
+      "productName": "Vendas — projeto integrado",
       "isConnected": true,
       "saleTypes": ["TICKET_ONLINE_SALE", "TICKET_POS_SALE", "PRODUCT_POS_SALE"]
     }
@@ -197,7 +197,7 @@ O cron job gera logs detalhados:
 
 1. Verifique se as variáveis de ambiente estão configuradas
 2. Verifique os logs da aplicação
-3. Verifique se a conexão com o banco OTicket Eventos está funcionando
+3. Verifique se a conexão com o banco configurado em `JRS_EXTERNAL_SALES_DB_*` está funcionando
 
 ### Vendas não estão sendo processadas
 

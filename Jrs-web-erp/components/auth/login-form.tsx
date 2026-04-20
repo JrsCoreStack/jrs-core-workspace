@@ -106,7 +106,7 @@ export function LoginForm({ onSwitchToRegister, onLogin }: LoginFormProps) {
           </div>
 
           <p className="text-sm text-muted-foreground">
-            OTicket Eventos - OTicket Play - Mais em breve
+            Vendas integradas — OTicket Play — Mais em breve
           </p>
         </div>
       </div>

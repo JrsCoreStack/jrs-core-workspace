@@ -3,7 +3,7 @@
  * Cada produto tem seu próprio banco de dados e configurações
  */
 export interface ProductConfig {
-  /** Identificador único do produto (ex: 'OTICKET_EVENTOS', 'OTICKET_PLAY') */
+  /** Identificador único do produto (ex: 'JRS_EXTERNAL_SALES', 'OTICKET_PLAY') */
   productId: string;
   
   /** Nome do produto para logs */

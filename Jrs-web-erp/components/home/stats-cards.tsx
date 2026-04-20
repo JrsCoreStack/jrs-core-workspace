@@ -151,7 +151,7 @@ export function StatsCards() {
           },
         ]
 
-      case "oticket-eventos":
+      case "jrs-external-sales":
 
         if (financialStats) {
           return [

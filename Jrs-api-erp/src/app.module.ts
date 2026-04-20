@@ -34,6 +34,7 @@ import { CockpitKpiModule } from './modules/cockpit_kpi/cockpit_kpi.module';
 import { CockpitCalendarExceptionModule } from './modules/cockpit_calendar_exception/cockpit_calendar_exception.module';
 import { CockpitNotificationModule } from './modules/cockpit_notification/cockpit_notification.module';
 import { CockpitReportModule } from './modules/cockpit_report/cockpit_report.module';
+import { getPostgresConnectionOptions } from './config/postgres-connection';
 
 @Module({
   imports: [
@@ -45,20 +46,7 @@ import { CockpitReportModule } from './modules/cockpit_report/cockpit_report.mod
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => ({
-        type: 'postgres' as const,
-        host: configService.get<string>('DB_HOST'),
-        port: Number(configService.get<string>('DB_PORT')) || 5432,
-        username: configService.get<string>('DB_USERNAME'),
-        password: configService.get<string>('DB_PASSWORD'),
-        database: configService.get<string>('DB_DATABASE'),
-        ssl:
-          configService.get<string>('DB_SSL') === 'true'
-            ? {
-                rejectUnauthorized:
-                  configService.get<string>('DB_SSL_REJECT_UNAUTHORIZED') !==
-                  'false',
-              }
-            : false,
+        ...getPostgresConnectionOptions((key) => configService.get<string>(key)),
         entities: [__dirname + '/**/*.entity{.ts,.js}'],
         migrations: [__dirname + '/migrations/**/*{.ts,.js}'],
         migrationsRun: true,

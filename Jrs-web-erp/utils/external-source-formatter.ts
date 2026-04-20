@@ -10,19 +10,19 @@ function formatExternalSource(externalSource: string | null | undefined): string
 
   const source = externalSource.trim();
 
-  // EVENT_SITE_WEB -> Site de Clientes (https://oticket.com.br/)
+  // EVENT_SITE_WEB -> canal web (vendas do projeto integrado)
   if (source === "EVENT_SITE_WEB") {
-    return "Site de Clientes - OTicket Eventos (https://oticket.com.br/)";
+    return "Site de clientes — canal web";
   }
 
-  // EVENT_SITE_APP -> Aplicativo de Clientes
+  // EVENT_SITE_APP -> aplicativo de clientes
   if (source === "EVENT_SITE_APP") {
-    return "Aplicativo de Clientes - OTicket Eventos";
+    return "Aplicativo de clientes";
   }
 
-  // EVENT_ADMIN_APP -> Aplicativo de Comissários
+  // EVENT_ADMIN_APP -> aplicativo operacional / comissários
   if (source === "EVENT_ADMIN_APP") {
-    return "Aplicativo de Comissários - OTicket Eventos";
+    return "Aplicativo operacional";
   }
 
   // Fallback: retorna o valor original

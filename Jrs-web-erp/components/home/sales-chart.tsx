@@ -12,13 +12,13 @@ import {
 } from "recharts"
 
 const data = [
-  { name: "Jan", eventos: 4000, play: 2400 },
-  { name: "Fev", eventos: 3000, play: 1398 },
-  { name: "Mar", eventos: 2000, play: 9800 },
-  { name: "Abr", eventos: 2780, play: 3908 },
-  { name: "Mai", eventos: 1890, play: 4800 },
-  { name: "Jun", eventos: 2390, play: 3800 },
-  { name: "Jul", eventos: 3490, play: 4300 },
+  { name: "Jan", vendasIntegradas: 4000, play: 2400 },
+  { name: "Fev", vendasIntegradas: 3000, play: 1398 },
+  { name: "Mar", vendasIntegradas: 2000, play: 9800 },
+  { name: "Abr", vendasIntegradas: 2780, play: 3908 },
+  { name: "Mai", vendasIntegradas: 1890, play: 4800 },
+  { name: "Jun", vendasIntegradas: 2390, play: 3800 },
+  { name: "Jul", vendasIntegradas: 3490, play: 4300 },
 ]
 
 export function SalesChart() {
@@ -33,7 +33,7 @@ export function SalesChart() {
         <ResponsiveContainer width="100%" height={300}>
           <AreaChart data={data}>
             <defs>
-              <linearGradient id="colorEventos" x1="0" y1="0" x2="0" y2="1">
+              <linearGradient id="colorVendasIntegradas" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="5%" stopColor="oklch(0.65 0.18 160)" stopOpacity={0.3} />
                 <stop offset="95%" stopColor="oklch(0.65 0.18 160)" stopOpacity={0} />
               </linearGradient>
@@ -68,11 +68,11 @@ export function SalesChart() {
             />
             <Area
               type="monotone"
-              dataKey="eventos"
-              name="OTicket Eventos"
+              dataKey="vendasIntegradas"
+              name="Vendas — projeto integrado"
               stroke="oklch(0.65 0.18 160)"
               fillOpacity={1}
-              fill="url(#colorEventos)"
+              fill="url(#colorVendasIntegradas)"
               strokeWidth={2}
             />
             <Area
@@ -89,7 +89,7 @@ export function SalesChart() {
         <div className="flex items-center justify-center gap-6 mt-4">
           <div className="flex items-center gap-2">
             <div className="h-3 w-3 rounded-full bg-primary" />
-            <span className="text-sm text-muted-foreground">OTicket Eventos</span>
+            <span className="text-sm text-muted-foreground">Vendas — projeto integrado</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="h-3 w-3 rounded-full bg-chart-2" />

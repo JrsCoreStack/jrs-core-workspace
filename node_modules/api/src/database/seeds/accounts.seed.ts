@@ -7,7 +7,7 @@ export async function seedAccounts(dataSource: DataSource) {
   const repository = dataSource.getRepository(AccountEntity);
 
   await repository.delete({ code: 'oticket-grupo' });
-  await repository.delete({ code: 'oticket-eventos' });
+  await repository.delete({ code: 'jrs-external-sales' });
   await repository.delete({ code: 'oticket-play' });
 
   const grupoOticket = repository.create({
@@ -19,14 +19,14 @@ export async function seedAccounts(dataSource: DataSource) {
   });
   await repository.save(grupoOticket);
 
-  const oticketEventos = repository.create({
-    name: 'OTicket Eventos',
-    code: 'oticket-eventos',
-    email: 'eventos@oticket.com.br',
-    type: AccountType.OTICKET_EVENTOS as number,
+  const contaVendasExterna = repository.create({
+    name: 'Vendas — projeto integrado',
+    code: 'jrs-external-sales',
+    email: 'vendas-integracao@jrs.local',
+    type: AccountType.JRS_EXTERNAL_SALES as number,
     level: AccountLevel.OPERATIONAL,
   });
-  await repository.save(oticketEventos);
+  await repository.save(contaVendasExterna);
 
   const oticketPlay = repository.create({
     name: 'OTicket Play',
@@ -41,7 +41,7 @@ export async function seedAccounts(dataSource: DataSource) {
 
   return {
     grupoOticket,
-    oticketEventos,
+    contaVendasExterna,
     oticketPlay,
   };
 }

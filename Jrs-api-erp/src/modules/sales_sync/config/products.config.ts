@@ -8,34 +8,34 @@ import { ConfigService } from '@nestjs/config';
 export function getProductsConfig(configService: ConfigService): ProductConfig[] {
   return [
     {
-      productId: 'OTICKET_EVENTOS',
-      productName: 'OTicket Eventos',
+      productId: 'JRS_EXTERNAL_SALES',
+      productName: 'Vendas — projeto integrado',
       database: {
-        host: configService.get<string>('OTICKET_EVENTOS_DB_HOST') || '',
-        port: Number(configService.get<string>('OTICKET_EVENTOS_DB_PORT') || 5432),
-        username: configService.get<string>('OTICKET_EVENTOS_DB_USERNAME') || '',
-        password: configService.get<string>('OTICKET_EVENTOS_DB_PASSWORD') || '',
-        database: configService.get<string>('OTICKET_EVENTOS_DB_DATABASE') || '',
-        ssl: configService.get<string>('OTICKET_EVENTOS_DB_SSL') === 'true',
+        host: configService.get<string>('JRS_EXTERNAL_SALES_DB_HOST') || '',
+        port: Number(configService.get<string>('JRS_EXTERNAL_SALES_DB_PORT') || 5432),
+        username: configService.get<string>('JRS_EXTERNAL_SALES_DB_USERNAME') || '',
+        password: configService.get<string>('JRS_EXTERNAL_SALES_DB_PASSWORD') || '',
+        database: configService.get<string>('JRS_EXTERNAL_SALES_DB_DATABASE') || '',
+        ssl: configService.get<string>('JRS_EXTERNAL_SALES_DB_SSL') === 'true',
       },
     saleTypes: [
       {
         saleTypeFilter: 'online',
         referenceType: 'TICKET_ONLINE_SALE',
         tableName: 'clients_sale',
-        externalSource: 'OTICKET_EVENTOS',
+        externalSource: 'JRS_EXTERNAL_SALES',
       },
       {
         saleTypeFilter: 'pos_ticket',
         referenceType: 'TICKET_POS_SALE',
         tableName: 'clients_sale',
-        externalSource: 'OTICKET_EVENTOS',
+        externalSource: 'JRS_EXTERNAL_SALES',
       },
       {
         saleTypeFilter: 'pos_product',
         referenceType: 'PRODUCT_POS_SALE',
         tableName: 'clients_sale',
-        externalSource: 'OTICKET_EVENTOS',
+        externalSource: 'JRS_EXTERNAL_SALES',
       },
     ],
   },

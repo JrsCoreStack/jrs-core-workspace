@@ -9,7 +9,10 @@
       "dev": "turbo run dev",
       "build": "turbo run build",
       "lint": "turbo run lint",
-      "test": "turbo run test"
+      "test": "turbo run test",
+      "build:api": "npm run build -w api",
+      "build:web": "npm run build -w oticket-erp",
+      "start:api:prod": "npm run start:prod -w api"
     },
     "devDependencies": {
       "turbo": "^2.0.0"

@@ -96,7 +96,7 @@ Crie o arquivo **`Jrs-api-erp/.env`** (e opcionalmente `.env.local` — o Nest c
 ### Integrações opcionais
 
 - **`EXTERNAL_API_URL`**: usada em fluxos de *producer payout* (fallback existe no código; configure para o seu ambiente).
-- **Banco OTicket / sync de vendas** (`OTICKET_EVENTOS_DB_*`, etc.): veja `Jrs-api-erp/src/modules/sales_sync/config/products.config.ts` e a documentação em `Jrs-api-erp/docs/` quando for usar sync com bases externas.
+- **Sync de vendas (projeto integrado)** (`JRS_EXTERNAL_SALES_DB_*`, etc.): veja `Jrs-api-erp/src/modules/sales_sync/config/products.config.ts` e `Jrs-api-erp/docs/` quando for sincronizar a partir de outro Postgres.
 
 Na subida, o TypeORM está configurado com **`migrationsRun: true`**: as migrations rodam automaticamente ao iniciar (desde que o banco exista e as credenciais estejam corretas).
 

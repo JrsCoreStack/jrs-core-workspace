@@ -56,7 +56,7 @@ const roles = [
 ];
 
 const accounts = [
-  { value: "eventos", label: "OTicket Eventos" },
+  { value: "jrs-external-sales", label: "Vendas — projeto integrado" },
   { value: "play", label: "OTicket Play" },
   { value: "ambos", label: "Ambos" },
 ];

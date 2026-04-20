@@ -16,10 +16,10 @@ async function runSeed() {
 
   const accounts = await seedAccounts(dataSource);
 
-  await seedChartOfAccounts(dataSource, accounts.oticketEventos.id);
+  await seedChartOfAccounts(dataSource, accounts.contaVendasExterna.id);
   await seedChartOfAccounts(dataSource, accounts.oticketPlay.id);
 
-  await seedFinancialGatewayFeeRules(dataSource, accounts.oticketEventos.id);
+  await seedFinancialGatewayFeeRules(dataSource, accounts.contaVendasExterna.id);
   // await seedFinancialGatewayFeeRules(dataSource, accounts.oticketPlay.id);
 
   await app.close();

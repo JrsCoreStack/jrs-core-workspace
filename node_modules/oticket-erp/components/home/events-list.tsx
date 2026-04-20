@@ -16,7 +16,7 @@ const events = [
     soldTickets: 85000,
     totalTickets: 100000,
     status: "Em vendas",
-    product: "eventos",
+    product: "integrado",
   },
   {
     id: "2",
@@ -36,7 +36,7 @@ const events = [
     soldTickets: 12000,
     totalTickets: 50000,
     status: "Pré-venda",
-    product: "eventos",
+    product: "integrado",
   },
   {
     id: "4",
@@ -58,7 +58,7 @@ const statusColors: Record<string, string> = {
 }
 
 const productColors: Record<string, string> = {
-  eventos: "bg-primary/10 text-primary",
+  integrado: "bg-primary/10 text-primary",
   play: "bg-chart-2/10 text-chart-2",
 }
 
@@ -88,7 +88,7 @@ export function EventsList() {
                       variant="outline"
                       className={cn("text-xs", productColors[event.product])}
                     >
-                      {event.product === "eventos" ? "Eventos" : "Play"}
+                      {event.product === "integrado" ? "Projeto integrado" : "Play"}
                     </Badge>
                   </div>
                   <div className="flex items-center gap-4 text-sm text-muted-foreground">

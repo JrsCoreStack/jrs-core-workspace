@@ -379,7 +379,7 @@ export class SalesSyncService implements OnModuleInit, OnModuleDestroy {
         const sale = {
           id: Number(row.id),
           reference_id: String(row.id || row.reference_id || ''),
-          account_code: row.account_code || 'oticket-eventos',
+          account_code: row.account_code || 'jrs-external-sales',
           total_paid_amount: Number(row.total_paid_amount || row.gross_amount || 0),
           ticket_amount: Number(row.ticket_amount || row.net_amount || 0),
           customer_fee_amount: Number(row.customer_fee_amount || 0),
@@ -557,7 +557,7 @@ export class SalesSyncService implements OnModuleInit, OnModuleDestroy {
       const sale: ClientSale = {
         id: Number(row.id),
         reference_id: String(row.id || row.reference_id || ''),
-        account_code: row.account_code || 'oticket-eventos',
+        account_code: row.account_code || 'jrs-external-sales',
         total_paid_amount: Number(row.total_paid_amount || row.gross_amount || 0),
         ticket_amount: Number(row.ticket_amount || row.net_amount || 0),
         customer_fee_amount: Number(row.customer_fee_amount || 0),
@@ -595,7 +595,7 @@ export class SalesSyncService implements OnModuleInit, OnModuleDestroy {
       SELECT 
         cs.id,
         cs.id::text as reference_id,
-        'oticket-eventos' as account_code,
+        'jrs-external-sales' as account_code,
         COALESCE(cs.gross_amount, 0) as total_paid_amount,
         COALESCE(cs.net_amount, 0) as ticket_amount,
         COALESCE(cs.producer_fee_amount, 0) as producer_fee_amount,

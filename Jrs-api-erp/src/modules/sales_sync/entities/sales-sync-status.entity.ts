@@ -17,7 +17,7 @@ export class SalesSyncStatusEntity {
     length: 100,
     unique: true,
   })
-  sync_type: string; // Formato: 'PRODUCT_ID_REFERENCE_TYPE' (ex: 'OTICKET_EVENTOS_TICKET_ONLINE_SALE')
+  sync_type: string; // Formato: 'PRODUCT_ID_REFERENCE_TYPE' (ex: 'JRS_EXTERNAL_SALES_TICKET_ONLINE_SALE')
 
   @Column({
     name: 'last_synced_id',
