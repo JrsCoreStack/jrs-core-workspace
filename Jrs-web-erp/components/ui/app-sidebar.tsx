@@ -16,6 +16,14 @@ import {
 import { formatRoleName } from "@/utils/role-formatter"
 import { cn } from "@/lib/utils"
 import { OrbitMark } from "@/components/brand/orbit-logo"
+import { User } from "lucide-react"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 
 /* ─────────────────── SVG ICONS ─────────────────────────────────────────── */
 function IcCockpit() {
@@ -561,22 +569,83 @@ export function AppSidebar() {
           font-size: 10px; color: var(--rf-text-muted);
           white-space: nowrap; margin-top: 1px;
         }
-        .rf-user-menu {
+        .rf-user-menu-trigger {
           margin-left: auto; flex-shrink: 0;
+          display: flex; align-items: center; justify-content: center;
+          padding: 4px; border-radius: 8px;
+          border: none; background: transparent;
           color: var(--rf-text-muted);
-          transition: opacity var(--rf-transition);
+          cursor: pointer;
+          transition: background var(--rf-transition), color var(--rf-transition);
         }
-        .rf-user-menu.rf-hidden-label { opacity: 0; width: 0; }
+        .rf-user-menu-trigger:hover {
+          background: var(--rf-bg-hover);
+          color: var(--rf-text-primary);
+        }
 
-        /* ── Logout item ── */
-        .rf-logout-item {
+        /* ── Menu ⋮ da conta (Radix dropdown) — mesmo vocabulário do sidebar ── */
+        .rf-user-dropdown-content[data-slot="dropdown-menu-content"] {
+          z-index: 100 !important;
+          width: 11rem !important;
+          padding: 6px !important;
+          min-width: unset !important;
+          overflow: visible !important;
+          font-family: var(--rf-font-body) !important;
+          color: var(--rf-text-primary) !important;
+          background: var(--rf-bg-elevated) !important;
+          border: 1px solid var(--rf-border-default) !important;
+          border-radius: 12px !important;
+          box-shadow:
+            0 10px 40px rgba(15, 23, 42, 0.12),
+            0 0 0 1px rgba(15, 23, 42, 0.04) !important;
+        }
+        .dark .rf-user-dropdown-content[data-slot="dropdown-menu-content"] {
+          box-shadow:
+            0 12px 48px rgba(0, 0, 0, 0.45),
+            0 0 0 1px rgba(255, 255, 255, 0.06) !important;
+        }
+        .rf-user-dropdown-content [data-slot="dropdown-menu-item"] {
+          border-radius: 8px !important;
+          font-size: 13.5px !important;
+          font-weight: 500 !important;
+          padding: 8px 10px !important;
+          gap: 10px !important;
+          margin: 0 !important;
+          color: var(--rf-text-secondary) !important;
+          cursor: pointer !important;
+        }
+        .rf-user-dropdown-content [data-slot="dropdown-menu-item"]:hover,
+        .rf-user-dropdown-content [data-slot="dropdown-menu-item"]:focus {
+          background: var(--rf-bg-hover) !important;
+          color: var(--rf-text-primary) !important;
+        }
+        .rf-user-dropdown-content [data-slot="dropdown-menu-item"] svg {
+          color: var(--rf-text-muted) !important;
+          flex-shrink: 0;
+        }
+        .rf-user-dropdown-content [data-slot="dropdown-menu-item"][data-variant="destructive"] {
           color: #ef4444 !important;
         }
-        .rf-logout-item:hover {
-          background: rgba(239,68,68,0.08) !important;
+        .rf-user-dropdown-content [data-slot="dropdown-menu-item"][data-variant="destructive"] svg {
           color: #ef4444 !important;
         }
-        .rf-logout-item .rf-ni-icon { color: #ef4444 !important; }
+        .rf-user-dropdown-content [data-slot="dropdown-menu-item"][data-variant="destructive"]:hover,
+        .rf-user-dropdown-content [data-slot="dropdown-menu-item"][data-variant="destructive"]:focus {
+          background: rgba(239, 68, 68, 0.08) !important;
+          color: #dc2626 !important;
+        }
+        .rf-user-dropdown-content [data-slot="dropdown-menu-separator"] {
+          background: var(--rf-border-subtle) !important;
+          margin: 6px 4px !important;
+        }
+        .rf-user-dropdown-link {
+          display: flex !important;
+          align-items: center;
+          gap: 10px;
+          width: 100%;
+          text-decoration: none !important;
+          color: inherit !important;
+        }
 
         /* ── Theme toggle area ── */
         .rf-theme-row {
@@ -740,48 +809,56 @@ export function AppSidebar() {
           </Tooltip>
         </div>
 
-        {/* ── User card ─────────────────────────────────────────────────── */}
+        {/* ── User card (Perfil / Sair no menu ⋮) ───────────────────────── */}
         <div className="rf-sb-user">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Link
-                href="/cockpit/perfil"
-                className="rf-user-btn"
-              >
-                <div className="rf-user-avatar">
-                  {userInitials}
-                  <div className="rf-user-status" />
-                </div>
-                <div className={cn("rf-user-info", collapsed && "rf-hidden-label")}>
-                  <div className="rf-user-name">
-                    {session?.user?.name ?? session?.user?.email ?? "Usuário"}
-                  </div>
-                  <div className="rf-user-role">
-                    {formatRoleName(session?.role)}
-                  </div>
-                </div>
-                <span className={cn("rf-user-menu", collapsed && "rf-hidden-label")}>
+          <div className="rf-user-btn">
+            <div className="rf-user-avatar" aria-hidden>
+              {userInitials}
+              <div className="rf-user-status" />
+            </div>
+            <div className={cn("rf-user-info", collapsed && "rf-hidden-label")}>
+              <div className="rf-user-name">
+                {session?.user?.name ?? session?.user?.email ?? "Usuário"}
+              </div>
+              <div className="rf-user-role">
+                {formatRoleName(session?.role)}
+              </div>
+            </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  className="rf-user-menu-trigger"
+                  aria-label="Menu da conta"
+                >
                   <IcDotsV />
-                </span>
-              </Link>
-            </TooltipTrigger>
-            {collapsed && (
-              <TooltipContent side="right" sideOffset={8}>
-                {session?.user?.name ?? "Perfil"}
-              </TooltipContent>
-            )}
-          </Tooltip>
-
-          {/* Botão de logout separado */}
-          {!collapsed && (
-            <button
-              className="rf-nav-item rf-logout-item mt-1"
-              onClick={() => signOut({ callbackUrl: "/auth" })}
-            >
-              <span className="rf-ni-icon"><IcSair /></span>
-              <span className="rf-ni-label">Sair</span>
-            </button>
-          )}
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                side="right"
+                align="end"
+                sideOffset={8}
+                className="rf-user-dropdown-content"
+              >
+                <DropdownMenuItem asChild>
+                  <Link href="/cockpit/perfil" className="rf-user-dropdown-link cursor-pointer">
+                    <User className="size-[18px] shrink-0" strokeWidth={1.8} />
+                    Perfil
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  variant="destructive"
+                  onSelect={() => {
+                    void signOut({ callbackUrl: "/auth" })
+                  }}
+                >
+                  <IcSair />
+                  Sair
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
 
       </div>
