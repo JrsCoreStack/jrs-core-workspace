@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect } from "react"
+import { Button } from "@/components/ui/button"
 
 interface ErrorPageProps {
   error: Error & { digest?: string }
@@ -29,7 +30,6 @@ export default function GlobalError({ error, reset }: ErrorPageProps) {
         alignItems: "center", gap: 12,
         maxWidth: 420, width: "100%",
       }}>
-        {/* ícone */}
         <div style={{
           width: 60, height: 60, borderRadius: 18,
           background: "var(--rf-danger-soft)",
@@ -68,30 +68,12 @@ export default function GlobalError({ error, reset }: ErrorPageProps) {
         )}
 
         <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
-          <button
-            onClick={reset}
-            style={{
-              padding: "10px 24px",
-              background: "var(--rf-accent)", color: "#fff",
-              border: "none", borderRadius: 10,
-              fontSize: 13, fontWeight: 600, cursor: "pointer",
-              fontFamily: "inherit",
-            }}
-          >
+          <Button onClick={reset}>
             Tentar novamente
-          </button>
-          <a
-            href="mailto:suporte@orbit.app"
-            style={{
-              padding: "8px 16px",
-              background: "transparent", color: "var(--rf-text-secondary)",
-              border: "1px solid var(--rf-border-default)", borderRadius: 10,
-              fontSize: 12, cursor: "pointer", textDecoration: "none",
-              display: "flex", alignItems: "center",
-            }}
-          >
-            Suporte
-          </a>
+          </Button>
+          <Button variant="outline" asChild>
+            <a href="mailto:suporte@orbit.app">Suporte</a>
+          </Button>
         </div>
       </div>
     </div>

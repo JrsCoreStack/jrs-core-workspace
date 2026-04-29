@@ -1,4 +1,5 @@
 import Link from "next/link"
+import { Button } from "@/components/ui/button"
 
 export default function NotFound() {
   return (
@@ -18,7 +19,6 @@ export default function NotFound() {
         alignItems: "center", gap: 12,
         maxWidth: 420, width: "100%",
       }}>
-        {/* ícone */}
         <div style={{
           width: 60, height: 60, borderRadius: 18,
           background: "var(--rf-bg-elevated)",
@@ -55,15 +55,9 @@ export default function NotFound() {
           404 · Not Found
         </div>
 
-        <Link href="/cockpit" style={{
-          marginTop: 4,
-          padding: "10px 28px",
-          background: "var(--rf-accent)", color: "#fff",
-          borderRadius: 10, textDecoration: "none",
-          fontSize: 13, fontWeight: 600,
-        }}>
-          Voltar ao Cockpit
-        </Link>
+        <Button asChild style={{ marginTop: 4 }}>
+          <Link href="/cockpit">Voltar ao Cockpit</Link>
+        </Button>
       </div>
     </div>
   )
