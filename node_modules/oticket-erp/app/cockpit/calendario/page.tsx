@@ -320,7 +320,7 @@ export default function CockpitCalendarioPage() {
         }
         .cal-title-group { display:flex;align-items:center;gap:10px; }
         .cal-page-title {
-          font-family:var(--font-display,'Syne',sans-serif);
+          font-family:var(--font-display,'Plus Jakarta Sans',system-ui,sans-serif);
           font-size:20px;font-weight:800;color:var(--rf-text-primary);letter-spacing:-0.3px;
         }
         .cal-nav { display:flex;align-items:center;gap:5px; }
@@ -332,7 +332,7 @@ export default function CockpitCalendarioPage() {
         }
         .cal-nav-btn:hover { background:var(--rf-bg-hover);color:var(--rf-text-primary); }
         .cal-period {
-          font-family:var(--font-display,'Syne',sans-serif);
+          font-family:var(--font-display,'Plus Jakarta Sans',system-ui,sans-serif);
           font-size:14px;font-weight:700;color:var(--rf-text-primary);
           min-width:140px;text-align:center;
         }
@@ -490,7 +490,7 @@ export default function CockpitCalendarioPage() {
         }
         .wdh-num {
           font-size:18px;font-weight:800;color:var(--rf-text-secondary);
-          font-family:var(--font-display,'Syne',sans-serif);margin-top:2px;
+          font-family:var(--font-display,'Plus Jakarta Sans',system-ui,sans-serif);margin-top:2px;
         }
         .wdh-num.today-num { color:var(--rf-accent,#7b61ff); }
         .week-body { display:flex;flex-direction:column; }
@@ -533,7 +533,7 @@ export default function CockpitCalendarioPage() {
           padding:14px 20px;display:flex;align-items:center;justify-content:space-between;
         }
         .day-title-big {
-          font-family:var(--font-display,'Syne',sans-serif);
+          font-family:var(--font-display,'Plus Jakarta Sans',system-ui,sans-serif);
           font-size:18px;font-weight:800;color:var(--rf-text-primary);
         }
         .day-subtitle { font-size:12px;color:var(--rf-text-secondary);margin-top:2px; }
@@ -627,7 +627,7 @@ export default function CockpitCalendarioPage() {
         }
         .cal-modal-close:hover { background:var(--rf-bg-hover);color:var(--rf-text-primary); }
         .cal-modal-title {
-          font-family:var(--font-display,'Syne',sans-serif);
+          font-family:var(--font-display,'Plus Jakarta Sans',system-ui,sans-serif);
           font-size:17px;font-weight:700;color:var(--rf-text-primary);margin-bottom:4px;
         }
         .cal-modal-area-tag {

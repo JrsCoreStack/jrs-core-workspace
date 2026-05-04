@@ -403,7 +403,7 @@ export default function RituaisPage() {
         }
         .rt-topbar-left { display: flex; align-items: center; gap: 12px; }
         .rt-page-title {
-          font-family: var(--font-syne, 'Syne', sans-serif);
+          font-family: var(--font-syne, "Plus Jakarta Sans", system-ui, sans-serif);
           font-size: 20px;
           font-weight: 800;
           color: var(--rf-text-primary, #0d0f14);
@@ -479,7 +479,13 @@ export default function RituaisPage() {
         .rt-fchip.active { background: var(--rf-accent-soft); }
 
         /* ── Content ── */
-        .rt-content { padding: 20px; }
+        .rt-content {
+          padding: 20px;
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          min-height: 0;
+        }
         .rt-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
         @media (max-width: 640px) { .rt-grid { grid-template-columns: 1fr; } }
 
@@ -568,7 +574,7 @@ export default function RituaisPage() {
 
         /* Card title */
         .rt-title {
-          font-family: var(--font-syne, 'Syne', sans-serif);
+          font-family: var(--font-syne, "Plus Jakarta Sans", system-ui, sans-serif);
           font-size: 16px;
           font-weight: 700;
           color: var(--rf-text-primary, #0d0f14);
@@ -691,13 +697,12 @@ export default function RituaisPage() {
         }
         .rt-add-card:hover .rt-add-label { color: var(--rf-accent, #7b61ff); }
 
-        /* Empty state */
         .rt-empty {
           display: flex;
           flex-direction: column;
           align-items: center;
           justify-content: center;
-          padding: 60px 24px;
+          padding: 0;
           text-align: center;
         }
         .rt-empty-icon {
@@ -713,7 +718,7 @@ export default function RituaisPage() {
           color: var(--rf-text-muted);
         }
         .rt-empty-title {
-          font-family: var(--font-syne, 'Syne', sans-serif);
+          font-family: var(--font-syne, "Plus Jakarta Sans", system-ui, sans-serif);
           font-size: 18px;
           font-weight: 700;
           color: var(--rf-text-primary);
@@ -723,7 +728,7 @@ export default function RituaisPage() {
           font-size: 13px;
           color: var(--rf-text-secondary);
           line-height: 1.6;
-          max-width: 280px;
+          max-width: 320px;
           margin-bottom: 24px;
         }
 
@@ -739,6 +744,7 @@ export default function RituaisPage() {
         }
       `}</style>
 
+      <div className="rf-cockpit-fill h-full min-h-0">
       {/* Topbar */}
       <div className="rt-topbar">
         <div className="rt-topbar-left">
@@ -793,7 +799,7 @@ export default function RituaisPage() {
       {/* Content */}
       <div className="rt-content">
         {loading ? (
-          <div className="rt-grid">
+          <div className="rt-grid flex-1">
             {Array.from({ length: 4 }).map((_, i) => (
               <div key={i} className="rt-card" style={{ minHeight: 240 }}>
                 <div className="rt-skeleton" style={{ height: 14, width: "40%", marginBottom: 12 }} />
@@ -808,26 +814,30 @@ export default function RituaisPage() {
             ))}
           </div>
         ) : rituals.filter((r) => r.active).length === 0 ? (
-          <div className="rt-empty">
-            <div className="rt-empty-icon">
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                <circle cx="12" cy="8" r="4"/><path d="M6.5 20v-1.5a5.5 5.5 0 0111 0V20"/>
-                <circle cx="18.5" cy="6.5" r="2.5"/><path d="M21 18v-1a3.5 3.5 0 00-2.5-3.35"/>
-              </svg>
+          <div className="rf-empty-viewport">
+            <div className="rf-empty-card">
+              <div className="rt-empty">
+                <div className="rt-empty-icon">
+                  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                    <circle cx="12" cy="8" r="4"/><path d="M6.5 20v-1.5a5.5 5.5 0 0111 0V20"/>
+                    <circle cx="18.5" cy="6.5" r="2.5"/><path d="M21 18v-1a3.5 3.5 0 00-2.5-3.35"/>
+                  </svg>
+                </div>
+                <div className="rt-empty-title">Nenhum ritual ainda</div>
+                <div className="rt-empty-desc">
+                  Configure os rituais da sua equipe para sincronizar alinhamentos, revisar KPIs e registrar decisões.
+                </div>
+                <Link href="/cockpit/rituais/novo" className="rt-btn-new">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+                  </svg>
+                  Criar primeiro ritual
+                </Link>
+              </div>
             </div>
-            <div className="rt-empty-title">Nenhum ritual ainda</div>
-            <div className="rt-empty-desc">
-              Configure os rituais da sua equipe para sincronizar alinhamentos, revisar KPIs e registrar decisões.
-            </div>
-            <Link href="/cockpit/rituais/novo" className="rt-btn-new">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
-              </svg>
-              Criar primeiro ritual
-            </Link>
           </div>
         ) : (
-          <div className="rt-grid">
+          <div className="rt-grid flex-1 overflow-auto">
             {filtered.map((r) => (
               <RitualCardItem
                 key={r.id}
@@ -865,6 +875,7 @@ export default function RituaisPage() {
           onUpdateAta={(updated) => setAtas((prev) => ({ ...prev, [String(openAtaId)]: updated }))}
         />
       )}
+      </div>
     </>
   )
 }

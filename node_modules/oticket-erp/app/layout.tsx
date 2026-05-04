@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, Syne, DM_Sans } from "next/font/google";
+import { Geist, Geist_Mono, Plus_Jakarta_Sans, DM_Sans } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/providers/auth-provider";
 import { AccountSync } from "@/providers/account-sync";
@@ -18,10 +18,10 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-const syne = Syne({
+const displayFont = Plus_Jakarta_Sans({
   variable: "--font-syne",
   subsets: ["latin"],
-  weight: ["600", "700", "800"],
+  weight: ["500", "600", "700", "800"],
 });
 
 const dmSans = DM_Sans({
@@ -31,8 +31,12 @@ const dmSans = DM_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "Sistema ERP - Grupo OTicket",
-  description: "Sistema ERP - OTicket",
+  title: {
+    default: "Orbit — RitualFlow",
+    template: "%s | Orbit",
+  },
+  description:
+    "Plataforma Orbit: Cockpit estratégico.",
 };
 
 export default function RootLayout({
@@ -66,7 +70,7 @@ export default function RootLayout({
         />
       </head>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} ${syne.variable} ${dmSans.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} ${displayFont.variable} ${dmSans.variable} antialiased`}
       >
         <ThemeProvider>
           <AuthProvider>

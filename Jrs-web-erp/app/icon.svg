@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32" fill="none">
+  <defs>
+    <linearGradient id="orbitBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1a1040" />
+      <stop offset="100%" stop-color="#7b61ff" />
+    </linearGradient>
+  </defs>
+  <rect width="32" height="32" rx="7" fill="url(#orbitBg)" />
+  <g transform="translate(3.5,3.5) scale(0.5208333)">
+    <circle cx="24" cy="24" r="20" stroke="white" stroke-width="1.5" fill="none" opacity="0.2" />
+    <circle cx="24" cy="24" r="12" stroke="white" stroke-width="1.5" fill="none" opacity="0.45" />
+    <circle cx="24" cy="24" r="5" fill="white" />
+    <circle cx="24" cy="24" r="2.5" fill="#7b61ff" />
+    <circle cx="40" cy="16" r="3.5" fill="#00d4ff" opacity="0.9" />
+    <circle cx="10" cy="34" r="2.5" fill="white" opacity="0.5" />
+  </g>
+</svg>

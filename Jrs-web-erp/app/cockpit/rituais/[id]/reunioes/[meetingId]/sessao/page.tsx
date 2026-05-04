@@ -221,7 +221,7 @@ export default function SessaoPage() {
           50% { opacity: 0.5; transform: scale(1.3); }
         }
         .ss-title {
-          font-family: var(--font-syne, 'Syne', sans-serif);
+          font-family: var(--font-syne, "Plus Jakarta Sans", system-ui, sans-serif);
           font-size: 18px; font-weight: 800;
           color: var(--rf-text-primary); letter-spacing: -0.3px; margin-bottom: 4px;
         }

@@ -1,5 +1,6 @@
 "use client";
 
+import type { CSSProperties } from "react";
 import { cn } from "@/lib/utils";
 
 /** Ícone orbital — manual Orbit (versão lockup clara: fundo gradiente) */
@@ -53,28 +54,73 @@ export function OrbitMark({
   );
 }
 
+const wordmarkGradientStyle: CSSProperties = {
+  fontFamily: "var(--font-orbit-brand, Outfit, system-ui, sans-serif)",
+  fontWeight: 700,
+  letterSpacing: "-0.03em",
+  backgroundImage:
+    "linear-gradient(105deg, var(--rf-accent, #7b61ff) 0%, #5b8def 48%, var(--rf-cyan, #00d4ff) 100%)",
+  WebkitBackgroundClip: "text",
+  backgroundClip: "text",
+  color: "transparent",
+  WebkitTextFillColor: "transparent",
+};
+
 /**
- * Lockup horizontal: ícone + wordmark "Orbit" (Space Grotesk 700 — manual da marca).
+ * Texto “Orbit” — reutilizável no hero / painel de auth (degradê marca).
+ */
+export function OrbitWordmark({
+  className,
+  size = "md",
+}: {
+  className?: string;
+  /** md ≈ lockup card; sm ≈ hero compacto */
+  size?: "sm" | "md";
+}) {
+  const textClass =
+    size === "sm"
+      ? "text-[17px] leading-none sm:text-[18px]"
+      : "text-[22px] leading-none sm:text-[24px]";
+  return (
+    <span className={cn("orbit-wordmark", textClass, className)} style={wordmarkGradientStyle}>
+      Orbit
+    </span>
+  );
+}
+
+/**
+ * Lockup horizontal: ícone + wordmark “Orbit”.
+ * `wordmark="gradient"` — degradê roxo → azul (identidade RitualFlow).
  */
 export function OrbitLogoLockup({
   variant = "light",
+  wordmark = "gradient",
   className,
   markSize = 40,
 }: {
   variant?: "light" | "dark";
+  /** sólido só para fundos onde o degradê perde contraste */
+  wordmark?: "gradient" | "solid";
   className?: string;
   markSize?: number;
 }) {
-  const color = variant === "light" ? "#0d0f14" : "#ffffff";
+  const solidColor = variant === "light" ? "#0d0f14" : "#ffffff";
   return (
     <div className={cn("flex items-center gap-3.5", className)}>
       <OrbitMark size={markSize} />
-      <span
-        className="orbit-wordmark text-[22px] font-bold leading-none tracking-[-0.03em] sm:text-[24px]"
-        style={{ color }}
-      >
-        Orbit
-      </span>
+      {wordmark === "gradient" ? (
+        <OrbitWordmark />
+      ) : (
+        <span
+          className="orbit-wordmark text-[22px] font-bold leading-none tracking-[-0.03em] sm:text-[24px]"
+          style={{
+            color: solidColor,
+            fontFamily: "var(--font-orbit-brand, Outfit, system-ui, sans-serif)",
+          }}
+        >
+          Orbit
+        </span>
+      )}
     </div>
   );
 }

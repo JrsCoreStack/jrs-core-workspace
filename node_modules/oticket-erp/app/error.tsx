@@ -44,7 +44,7 @@ export default function GlobalError({ error, reset }: ErrorPageProps) {
         </div>
 
         <div style={{
-          fontFamily: "var(--rf-font-display,'Syne',sans-serif)",
+          fontFamily: 'var(--rf-font-display, "Plus Jakarta Sans", system-ui, sans-serif)',
           fontSize: 20, fontWeight: 700,
           color: "var(--rf-text-primary)",
         }}>

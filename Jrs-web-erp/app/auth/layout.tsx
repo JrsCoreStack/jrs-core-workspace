@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
-import { Syne, DM_Sans, Space_Grotesk, DM_Mono } from "next/font/google";
+import { Plus_Jakarta_Sans, DM_Sans, Outfit, DM_Mono } from "next/font/google";
 
-const syne = Syne({
+const displayFont = Plus_Jakarta_Sans({
   subsets: ["latin"],
-  weight: ["600", "700", "800"],
+  weight: ["500", "600", "700", "800"],
   variable: "--font-rf-display",
   display: "swap",
 });
@@ -22,16 +22,18 @@ const dmMono = DM_Mono({
   display: "swap",
 });
 
-/** Wordmark da marca Orbit — manual: Space Grotesk 700 */
-const spaceGrotesk = Space_Grotesk({
+/** Wordmark “Orbit” — Outfit (boa legibilidade + combina com degradê roxo/azul) */
+const orbitWordmark = Outfit({
   subsets: ["latin"],
-  weight: ["700"],
+  weight: ["600", "700"],
   variable: "--font-orbit-brand",
   display: "swap",
 });
 
 export const metadata: Metadata = {
-  title: "Orbit — Acesso",
+  title: {
+    absolute: "Orbit — Acesso",
+  },
   description: "Entre ou crie sua conta no Orbit",
 };
 
@@ -40,7 +42,7 @@ export default function AuthLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <div
-      className={`${syne.variable} ${dmSans.variable} ${dmMono.variable} ${spaceGrotesk.variable} flex min-h-svh w-full min-w-0 flex-1 flex-col`}
+      className={`${displayFont.variable} ${dmSans.variable} ${dmMono.variable} ${orbitWordmark.variable} flex min-h-svh w-full min-w-0 flex-1 flex-col`}
     >
       {children}
     </div>

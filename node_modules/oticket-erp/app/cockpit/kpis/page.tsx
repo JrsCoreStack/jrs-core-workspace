@@ -1436,8 +1436,11 @@ function KpisPageInner() {
           border-color: var(--rf-accent-border);
         }
         .kpi-empty-state {
-          display: flex; flex-direction: column; align-items: center;
-          justify-content: center; padding: 60px 24px; text-align: center;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          padding: 0;
+          text-align: center;
         }
         .kpi-search-wrap {
           position: relative; flex: 1;
@@ -1462,6 +1465,7 @@ function KpisPageInner() {
         .kpi-search-input::placeholder { color: var(--rf-text-muted); }
       `}</style>
 
+      <div className="rf-cockpit-fill h-full min-h-0">
       {/* TOPBAR */}
       <div style={{
         background: "var(--rf-bg-surface)",
@@ -1564,7 +1568,7 @@ function KpisPageInner() {
       </div>
 
       {/* CONTENT */}
-      <div style={{ padding: "16px 20px", paddingBottom: 60 }}>
+      <div className="flex min-h-0 flex-1 flex-col" style={{ padding: "16px 20px", paddingBottom: 60 }}>
         {loading ? (
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {[1, 2, 3, 4, 5].map((i) => (
@@ -1576,39 +1580,43 @@ function KpisPageInner() {
             ))}
           </div>
         ) : filtered.length === 0 ? (
-          <div className="kpi-empty-state">
-            <div style={{
-              width: 64, height: 64, borderRadius: "var(--rf-radius-xl)",
-              background: "var(--rf-bg-elevated)", border: "1px solid var(--rf-border-default)",
-              display: "grid", placeItems: "center", marginBottom: 20, color: "var(--rf-text-muted)",
-            }}>
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
-              </svg>
+          <div className="rf-empty-viewport">
+            <div className="rf-empty-card">
+              <div className="kpi-empty-state">
+                <div style={{
+                  width: 64, height: 64, borderRadius: "var(--rf-radius-xl)",
+                  background: "var(--rf-bg-elevated)", border: "1px solid var(--rf-border-default)",
+                  display: "grid", placeItems: "center", marginBottom: 20, color: "var(--rf-text-muted)",
+                }}>
+                  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                    <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+                  </svg>
+                </div>
+                <div style={{ fontFamily: "var(--rf-font-display)", fontSize: 18, fontWeight: 700, color: "var(--rf-text-primary)", marginBottom: 8 }}>
+                  Nenhum KPI encontrado
+                </div>
+                <div style={{ fontSize: 13, color: "var(--rf-text-secondary)", lineHeight: 1.6, maxWidth: 280, marginBottom: 24 }}>
+                  {rows.length === 0
+                    ? "Cadastre os indicadores-chave de performance da sua empresa para acompanhar metas anuais e mensais."
+                    : "Tente ajustar os filtros para encontrar o KPI desejado."}
+                </div>
+                {rows.length === 0 && (
+                  <button
+                    onClick={() => router.push("/cockpit/kpis/novo")}
+                    style={{
+                      display: "inline-flex", alignItems: "center", gap: 6,
+                      padding: "12px 28px", borderRadius: "var(--rf-radius-md)",
+                      background: "var(--rf-accent)", color: "#fff", border: "none",
+                      fontFamily: "var(--rf-font-body)", fontSize: 14, fontWeight: 600,
+                      cursor: "pointer", boxShadow: "0 2px 10px rgba(123,97,255,0.35)",
+                    }}
+                  >
+                    <Plus style={{ width: 14, height: 14 }} />
+                    Cadastrar primeiro KPI
+                  </button>
+                )}
+              </div>
             </div>
-            <div style={{ fontFamily: "var(--rf-font-display)", fontSize: 18, fontWeight: 700, color: "var(--rf-text-primary)", marginBottom: 8 }}>
-              Nenhum KPI encontrado
-            </div>
-            <div style={{ fontSize: 13, color: "var(--rf-text-secondary)", lineHeight: 1.6, maxWidth: 280, marginBottom: 24 }}>
-              {rows.length === 0
-                ? "Cadastre os indicadores-chave de performance da sua empresa para acompanhar metas anuais e mensais."
-                : "Tente ajustar os filtros para encontrar o KPI desejado."}
-            </div>
-            {rows.length === 0 && (
-              <button
-                onClick={() => router.push("/cockpit/kpis/novo")}
-                style={{
-                  display: "inline-flex", alignItems: "center", gap: 6,
-                  padding: "12px 28px", borderRadius: "var(--rf-radius-md)",
-                  background: "var(--rf-accent)", color: "#fff", border: "none",
-                  fontFamily: "var(--rf-font-body)", fontSize: 14, fontWeight: 600,
-                  cursor: "pointer", boxShadow: "0 2px 10px rgba(123,97,255,0.35)",
-                }}
-              >
-                <Plus style={{ width: 14, height: 14 }} />
-                Cadastrar primeiro KPI
-              </button>
-            )}
           </div>
         ) : (
           <>
@@ -1684,6 +1692,7 @@ function KpisPageInner() {
           }
         }}
       />
+      </div>
     </>
   )
 }

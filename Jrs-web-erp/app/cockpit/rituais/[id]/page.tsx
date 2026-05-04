@@ -263,7 +263,7 @@ export default function RitualDetailPage() {
           margin-left: 4px;
         }
         .dt-title {
-          font-family: var(--font-syne, 'Syne', sans-serif);
+          font-family: var(--font-syne, "Plus Jakarta Sans", system-ui, sans-serif);
           font-size: 20px; font-weight: 800;
           color: var(--rf-text-primary); letter-spacing: -0.3px;
           margin-bottom: 6px;

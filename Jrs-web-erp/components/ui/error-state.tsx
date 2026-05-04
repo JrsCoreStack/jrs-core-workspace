@@ -73,7 +73,7 @@ export function ErrorState({ variant, onRetry }: ErrorStateProps) {
       </div>
 
       <div style={{
-        fontFamily: "var(--rf-font-display,'Syne',sans-serif)",
+        fontFamily: 'var(--rf-font-display, "Plus Jakarta Sans", system-ui, sans-serif)',
         fontSize: 18, fontWeight: 700,
         color: "var(--rf-text-primary)",
       }}>
@@ -231,7 +231,7 @@ export function DestructiveConfirm({
         </div>
         <div>
           <div style={{
-            fontFamily: "var(--rf-font-display,'Syne',sans-serif)",
+            fontFamily: 'var(--rf-font-display, "Plus Jakarta Sans", system-ui, sans-serif)',
             fontSize: 15, fontWeight: 700, color: "var(--rf-text-primary)",
           }}>{title}</div>
           <div style={{ fontSize: 12, color: "var(--rf-text-secondary)", marginTop: 2 }}>{subtitle}</div>

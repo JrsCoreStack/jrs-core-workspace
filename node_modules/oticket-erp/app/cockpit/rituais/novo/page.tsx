@@ -157,7 +157,7 @@ export default function NovoRitualPage() {
         }
         .nrt-back-btn:hover { background: var(--rf-bg-hover); color: var(--rf-text-primary); }
         .nrt-topbar-title {
-          font-family: var(--font-syne, 'Syne', sans-serif);
+          font-family: var(--font-syne, "Plus Jakarta Sans", system-ui, sans-serif);
           font-size: 17px; font-weight: 700;
           color: var(--rf-text-primary);
         }

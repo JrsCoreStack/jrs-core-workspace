@@ -20,7 +20,7 @@ import api from "@/utils/api";
 import { isValidCpf } from "@/lib/validations/cpf";
 import { messageFromResponseData } from "@/lib/cockpit/normalize-api-message";
 import { ConfettiBurst } from "./confetti-burst";
-import { OrbitMark } from "@/components/brand/orbit-logo";
+import { OrbitMark, OrbitLogoLockup, OrbitWordmark } from "@/components/brand/orbit-logo";
 
 /* ─────────────────────────────────────────────────────────────────────────
    Tipos
@@ -445,18 +445,7 @@ function AuthMobileHero({ tab }: { tab: Tab }) {
         }}
       >
         <OrbitMark size={32} />
-        <span
-          style={{
-            fontFamily:
-              "var(--font-rf-display, var(--font-orbit-brand, sans-serif))",
-            fontSize: 17,
-            fontWeight: 700,
-            color: "var(--rf-text-primary)",
-            letterSpacing: "-0.02em",
-          }}
-        >
-          Orbit
-        </span>
+        <OrbitWordmark size="sm" />
       </div>
       <div style={{ position: "relative", zIndex: 1 }}>
         <h2
@@ -633,16 +622,7 @@ function BrandPanel({ tab }: { tab: Tab }) {
         }}
       >
         <OrbitMark size={32} />
-        <span
-          style={{
-            fontFamily: "var(--font-rf-display, var(--font-orbit-brand, sans-serif))",
-            fontSize: 16,
-            fontWeight: 700,
-            color: "var(--rf-text-primary)",
-          }}
-        >
-          Orbit
-        </span>
+        <OrbitWordmark size="sm" />
       </div>
 
       {/* Espaçador flexível — empurra o conteúdo para o centro/baixo */}
@@ -1958,7 +1938,7 @@ export function AuthModal({ defaultTab = "login" }: { defaultTab?: Tab }) {
             padding: "36px 36px 32px",
           }}
         >
-          {/* Ícone Orbit acima dos tabs */}
+          {/* Logo + nome do sistema acima dos tabs (desktop / tablet largura do card) */}
           <div
             className="auth-logo-above-tabs"
             style={{
@@ -1967,7 +1947,7 @@ export function AuthModal({ defaultTab = "login" }: { defaultTab?: Tab }) {
               marginBottom: 20,
             }}
           >
-            <OrbitMark size={40} />
+            <OrbitLogoLockup markSize={40} />
           </div>
 
           {/* Tabs */}

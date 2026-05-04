@@ -405,7 +405,10 @@ export default function CockpitPage() {
         /* ── Page shell ── */
         .cp-page {
           display: flex; flex-direction: column;
-          height: 100%; overflow-y: auto; overflow-x: hidden;
+          flex: 1;
+          min-height: 0;
+          height: 100%;
+          overflow-y: auto; overflow-x: hidden;
           background: var(--rf-bg-base);
           font-family: var(--rf-font-body, 'DM Sans', sans-serif);
           color: var(--rf-text-primary);
@@ -422,7 +425,7 @@ export default function CockpitPage() {
         }
         .cp-topbar-left  { display: flex; align-items: flex-start; gap: 10px; min-width: 0; }
         .cp-page-title   {
-          font-family: var(--rf-font-display, 'Syne', sans-serif);
+          font-family: var(--rf-font-display, "Plus Jakarta Sans", system-ui, sans-serif);
           font-size: 20px; font-weight: 800;
           color: var(--rf-text-primary); letter-spacing: -0.3px;
           line-height: 1.2;
@@ -462,7 +465,7 @@ export default function CockpitPage() {
 
         /* ── Section header ── */
         .cp-sec-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
-        .cp-sec-title { font-family: var(--rf-font-display, 'Syne', sans-serif); font-size: 14px; font-weight: 700; color: var(--rf-text-primary); }
+        .cp-sec-title { font-family: var(--rf-font-display, "Plus Jakarta Sans", system-ui, sans-serif); font-size: 14px; font-weight: 700; color: var(--rf-text-primary); }
         .cp-sec-link { font-size: 12px; color: var(--rf-accent); font-weight: 600; cursor: pointer; text-decoration: none; }
         .cp-sec-meta { font-size: 11px; color: var(--rf-text-muted); font-family: monospace; }
 
@@ -487,7 +490,7 @@ export default function CockpitPage() {
         }
         .cp-kpi-label { font-size: 10px; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase; color: var(--rf-text-muted); margin-bottom: 10px; }
         .cp-kpi-value {
-          font-family: var(--rf-font-display, 'Syne', sans-serif);
+          font-family: var(--rf-font-display, "Plus Jakarta Sans", system-ui, sans-serif);
           font-size: 24px; font-weight: 800; color: var(--rf-text-primary);
           letter-spacing: -0.5px; line-height: 1; margin-bottom: 8px;
         }
@@ -541,7 +544,7 @@ export default function CockpitPage() {
           background: linear-gradient(135deg, var(--rf-accent), #00d4ff);
           display: grid; place-items: center;
           font-size: 7px; font-weight: 700; color: #fff;
-          font-family: var(--rf-font-display, 'Syne', sans-serif);
+          font-family: var(--rf-font-display, "Plus Jakarta Sans", system-ui, sans-serif);
         }
         .cp-task-progress { margin-top: 8px; }
         .cp-task-progress-label { font-size: 10px; color: var(--rf-text-muted); margin-bottom: 4px; }
@@ -583,11 +586,10 @@ export default function CockpitPage() {
         .cp-btn-enter { padding: 5px 12px; background: var(--rf-accent); color: #fff; border: none; border-radius: 10px; font-family: var(--rf-font-body, sans-serif); font-size: 11px; font-weight: 600; cursor: pointer; transition: all var(--rf-transition); }
         .cp-btn-enter:hover { background: var(--rf-accent-hover); }
 
-        /* ── Empty state ── */
+        /* ── Empty state (borda pontilhada: .rf-empty-card em globals.css) ── */
         .cp-empty {
-          background: var(--rf-bg-surface);
-          border: 1px dashed var(--rf-border-strong);
-          border-radius: 16px; padding: 48px 28px; text-align: center;
+          padding: 0;
+          text-align: center;
         }
         .cp-empty-icon {
           width: 52px; height: 52px; border-radius: 14px;
@@ -595,7 +597,7 @@ export default function CockpitPage() {
           display: grid; place-items: center; margin: 0 auto 16px;
           color: var(--rf-text-muted);
         }
-        .cp-empty-title { font-family: var(--rf-font-display, 'Syne', sans-serif); font-size: 15px; font-weight: 700; color: var(--rf-text-primary); margin-bottom: 6px; }
+        .cp-empty-title { font-family: var(--rf-font-display, "Plus Jakarta Sans", system-ui, sans-serif); font-size: 15px; font-weight: 700; color: var(--rf-text-primary); margin-bottom: 6px; }
         .cp-empty-desc  { font-size: 13px; color: var(--rf-text-secondary); line-height: 1.5; margin-bottom: 22px; }
         .cp-empty-btn {
           padding: 10px 24px; background: var(--rf-accent); color: #fff;
@@ -612,7 +614,7 @@ export default function CockpitPage() {
         .cp-kpi-ghost-wide { grid-column: 1 / -1; }
       `}</style>
 
-      <div className="cp-page">
+      <div className="cp-page rf-cockpit-fill">
 
         {/* ── Topbar ─────────────────────────────────────────────────────── */}
         <div className="cp-topbar">
@@ -727,18 +729,22 @@ export default function CockpitPage() {
             </div>
 
             {plans.length === 0 && !loading ? (
-              <div className="cp-empty">
-                <div className="cp-empty-icon">
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                    <path d="M9 11l3 3L22 4"/>
-                    <path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/>
-                  </svg>
+              <div className="rf-empty-viewport rf-empty-viewport--section">
+                <div className="rf-empty-card">
+                  <div className="cp-empty">
+                    <div className="cp-empty-icon">
+                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                        <path d="M9 11l3 3L22 4"/>
+                        <path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/>
+                      </svg>
+                    </div>
+                    <div className="cp-empty-title">Nenhum plano criado ainda</div>
+                    <div className="cp-empty-desc">Crie seu primeiro plano de ação para começar a acompanhar a execução tática da sua equipe.</div>
+                    <Link href="/cockpit/planos-de-acao">
+                      <button type="button" className="cp-empty-btn">+ Criar primeiro plano</button>
+                    </Link>
+                  </div>
                 </div>
-                <div className="cp-empty-title">Nenhum plano criado ainda</div>
-                <div className="cp-empty-desc">Crie seu primeiro plano de ação para começar a acompanhar a execução tática da sua equipe.</div>
-                <Link href="/cockpit/planos-de-acao">
-                  <button className="cp-empty-btn">+ Criar primeiro plano</button>
-                </Link>
               </div>
             ) : (
               <div className="cp-kanban-wrap">
@@ -768,18 +774,22 @@ export default function CockpitPage() {
             </div>
 
             {todayMeetings.length === 0 && !loading ? (
-              <div className="cp-empty">
-                <div className="cp-empty-icon">
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                    <circle cx="12" cy="8" r="4"/>
-                    <path d="M6 20v-2a6 6 0 0112 0v2"/>
-                  </svg>
+              <div className="rf-empty-viewport rf-empty-viewport--section">
+                <div className="rf-empty-card">
+                  <div className="cp-empty">
+                    <div className="cp-empty-icon">
+                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                        <circle cx="12" cy="8" r="4"/>
+                        <path d="M6 20v-2a6 6 0 0112 0v2"/>
+                      </svg>
+                    </div>
+                    <div className="cp-empty-title">Nenhum ritual agendado</div>
+                    <div className="cp-empty-desc">Configure os rituais da sua equipe para sincronizar alinhamentos, revisões e tomadas de decisão.</div>
+                    <Link href="/cockpit/rituais">
+                      <button type="button" className="cp-empty-btn">+ Configurar rituais</button>
+                    </Link>
+                  </div>
                 </div>
-                <div className="cp-empty-title">Nenhum ritual agendado</div>
-                <div className="cp-empty-desc">Configure os rituais da sua equipe para sincronizar alinhamentos, revisões e tomadas de decisão.</div>
-                <Link href="/cockpit/rituais">
-                  <button className="cp-empty-btn">+ Configurar rituais</button>
-                </Link>
               </div>
             ) : (
               <div className="cp-ritual-list">

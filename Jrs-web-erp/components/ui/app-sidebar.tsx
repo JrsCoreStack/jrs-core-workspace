@@ -111,13 +111,6 @@ function IcChevronDown() {
     </svg>
   )
 }
-function IcChevronLeft() {
-  return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-      <polyline points="15 18 9 12 15 6" />
-    </svg>
-  )
-}
 function IcDotsV() {
   return (
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -127,7 +120,7 @@ function IcDotsV() {
 }
 function IcSun() {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.25" strokeLinecap="round">
       <circle cx="12" cy="12" r="5" />
       <line x1="12" y1="1" x2="12" y2="3" /><line x1="12" y1="21" x2="12" y2="23" />
       <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" /><line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
@@ -138,7 +131,7 @@ function IcSun() {
 }
 function IcMoon() {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.25" strokeLinecap="round" strokeLinejoin="round">
       <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z" />
     </svg>
   )
@@ -260,9 +253,38 @@ function SistemaItem({
 }
 
 /* ─────────────────── MAIN COMPONENT ────────────────────────────────────── */
+const SIDEBAR_HOVER_LEAVE_MS = 420
+
 export function AppSidebar() {
-  const open          = useSidebarStore((s) => s.open)
-  const toggleSidebar = useSidebarStore((s) => s.toggleSidebar)
+  const open = useSidebarStore((s) => s.open)
+  const setOpen = useSidebarStore((s) => s.setOpen)
+  const isMobile = useSidebarStore((s) => s.isMobile)
+  const leaveTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const clearHoverLeaveTimer = React.useCallback(() => {
+    if (leaveTimerRef.current) {
+      clearTimeout(leaveTimerRef.current)
+      leaveTimerRef.current = null
+    }
+  }, [])
+
+  React.useEffect(() => () => clearHoverLeaveTimer(), [clearHoverLeaveTimer])
+
+  const handleSidebarPointerEnter = React.useCallback(() => {
+    if (isMobile) return
+    clearHoverLeaveTimer()
+    setOpen(true)
+  }, [isMobile, setOpen, clearHoverLeaveTimer])
+
+  const handleSidebarPointerLeave = React.useCallback(() => {
+    if (isMobile) return
+    clearHoverLeaveTimer()
+    leaveTimerRef.current = setTimeout(() => {
+      setOpen(false)
+      leaveTimerRef.current = null
+    }, SIDEBAR_HOVER_LEAVE_MS)
+  }, [isMobile, setOpen, clearHoverLeaveTimer])
+
   const { theme, toggleTheme } = useThemeStore()
   const { data: session } = useSession()
   const currentAccount = useAccountStore((s) => s.currentAccount)
@@ -279,7 +301,12 @@ export function AppSidebar() {
   }, [currentAccount])
 
   return (
-    <Sidebar collapsible="icon" className="border-r-0 p-0 font-(--rf-font-body)">
+    <Sidebar
+      collapsible="icon"
+      className="border-r-0 p-0 font-(--rf-font-body)"
+      onPointerEnter={handleSidebarPointerEnter}
+      onPointerLeave={handleSidebarPointerLeave}
+    >
       {/* ── Injected styles ─────────────────────────────────────────────── */}
       <style>{`
         /* ── Root container ── */
@@ -302,63 +329,67 @@ export function AppSidebar() {
           pointer-events: none;
         }
 
-        /* ── Logo area ── */
+        /* ── Logo area (botão de colapsar em fluxo — evita sobrepor o ícone em ~64px) ── */
         .rf-sb-logo {
+          display: flex;
+          flex-direction: row;
+          align-items: center;
+          gap: 8px;
+          padding: 18px 12px 16px;
+          border-bottom: 1px solid var(--rf-border-subtle);
+          overflow: visible;
+          min-width: 0;
+        }
+        .rf-sb-logo--collapsed {
+          flex-direction: column;
+          align-items: center;
+          padding: 14px 6px 16px;
+          gap: 0;
+        }
+        .rf-sb-logo-inner {
           display: flex;
           align-items: center;
           gap: 10px;
-          padding: 18px 14px 16px;
-          border-bottom: 1px solid var(--rf-border-subtle);
-          overflow: hidden;
           min-width: 0;
+          flex: 1;
+        }
+        .rf-sb-logo--collapsed .rf-sb-logo-inner {
+          justify-content: center;
+          flex: 0 0 auto;
+          width: 100%;
+        }
+        .rf-sb-logo-inner > .shrink-0 {
+          flex-shrink: 0;
           position: relative;
+          z-index: 1;
         }
         .rf-sb-logo-text {
-          overflow: hidden; min-width: 0;
-          transition: opacity var(--rf-transition), width var(--rf-transition);
+          overflow: hidden;
+          min-width: 0;
+          flex: 1;
+          transition: opacity var(--rf-transition);
+        }
+        /* Sem isto, “Orbit” / tag ficavam com largura residual e cortavam (“Plataforma de…”) */
+        .rf-sb-logo-text.rf-hidden-label {
+          display: none;
         }
         .rf-sb-logo-name {
           font-family: var(--rf-font-display);
-          font-size: 15px; font-weight: 800;
+          font-size: 15px;
+          font-weight: 700;
+          letter-spacing: -0.02em;
           color: var(--rf-text-primary);
-          white-space: nowrap; line-height: 1.2;
+          white-space: nowrap;
+          line-height: 1.25;
         }
         .rf-sb-logo-tag {
-          font-size: 10px; font-weight: 600;
-          color: var(--rf-text-muted);
-          white-space: nowrap; margin-top: 1px;
+          font-size: 11px;
+          font-weight: 500;
+          letter-spacing: 0.01em;
+          color: var(--rf-text-secondary);
+          white-space: nowrap;
+          margin-top: 2px;
         }
-
-        /* ── Collapse button ── */
-        .rf-sb-collapse-btn {
-          position: absolute;
-          top: 18px; right: 12px;
-          width: 22px; height: 22px;
-          border-radius: 6px;
-          background: var(--rf-bg-elevated);
-          border: 1px solid var(--rf-border-default);
-          display: grid; place-items: center;
-          cursor: pointer;
-          color: var(--rf-text-muted);
-          transition: all var(--rf-transition);
-          flex-shrink: 0; z-index: 10;
-        }
-        .rf-sb-collapse-btn:hover {
-          background: var(--rf-accent-soft);
-          border-color: var(--rf-accent-border);
-          color: var(--rf-accent);
-        }
-        .rf-sb-collapse-btn:active {
-          transform: scale(0.88);
-          background: var(--rf-accent);
-          color: #fff;
-          transition: transform 0.08s ease, background 0.08s ease;
-        }
-        .rf-collapse-icon {
-          transition: transform var(--rf-transition);
-          display: grid; place-items: center;
-        }
-        .rf-collapse-icon.rotated { transform: rotate(180deg); }
 
         /* ── Scroll area ── */
         .rf-sb-scroll {
@@ -569,8 +600,15 @@ export function AppSidebar() {
           font-size: 10px; color: var(--rf-text-muted);
           white-space: nowrap; margin-top: 1px;
         }
+        .rf-user-actions {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          margin-left: auto;
+          flex-shrink: 0;
+        }
         .rf-user-menu-trigger {
-          margin-left: auto; flex-shrink: 0;
+          flex-shrink: 0;
           display: flex; align-items: center; justify-content: center;
           padding: 4px; border-radius: 8px;
           border: none; background: transparent;
@@ -647,62 +685,20 @@ export function AppSidebar() {
           color: inherit !important;
         }
 
-        /* ── Theme toggle area ── */
-        .rf-theme-row {
-          display: flex; align-items: center; gap: 10px;
-          padding: 8px 10px 0;
-        }
-        .rf-theme-label {
-          font-size: 11px; color: var(--rf-text-muted);
-          flex: 1; white-space: nowrap; overflow: hidden;
-          transition: opacity var(--rf-transition), width var(--rf-transition);
-        }
-        .rf-theme-label.rf-hidden-label { opacity: 0; width: 0; }
-        .rf-theme-toggle-btn {
-          display: flex; align-items: center; justify-content: center;
-          padding: 5px; border-radius: 6px;
-          border: 1px solid var(--rf-border-default);
-          background: var(--rf-bg-elevated);
-          color: var(--rf-text-muted);
-          cursor: pointer; transition: all var(--rf-transition);
-          flex-shrink: 0;
-        }
-        .rf-theme-toggle-btn:hover {
-          background: var(--rf-accent-soft);
-          border-color: var(--rf-accent-border);
-          color: var(--rf-accent);
-        }
-        .rf-theme-toggle-btn:active {
-          transform: scale(0.88);
-          background: var(--rf-accent);
-          border-color: var(--rf-accent);
-          color: #fff;
-          transition: transform 0.08s ease, background 0.08s ease;
-        }
       `}</style>
 
       {/* ── Inner wrapper ───────────────────────────────────────────────── */}
       <div className="flex h-full flex-col font-(--rf-font-body)">
 
-        {/* ── Logo + Collapse btn ────────────────────────────────────────── */}
-        <div className="rf-sb-logo">
-          <OrbitMark size={32} className="shrink-0" />
-          <div className={cn("rf-sb-logo-text", collapsed && "rf-hidden-label")}>
-            <div className="rf-sb-logo-name">Orbit</div>
-            <div className="rf-sb-logo-tag">Plataforma de Gestão</div>
+        {/* ── Logo (expandir/recolher: hover na sidebar no desktop) ──────── */}
+        <div className={cn("rf-sb-logo", collapsed && "rf-sb-logo--collapsed")}>
+          <div className="rf-sb-logo-inner">
+            <OrbitMark size={32} className="shrink-0" />
+            <div className={cn("rf-sb-logo-text", collapsed && "rf-hidden-label")}>
+              <div className="rf-sb-logo-name">Orbit</div>
+              <div className="rf-sb-logo-tag">Plataforma de Gestão</div>
+            </div>
           </div>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button className="rf-sb-collapse-btn" onClick={toggleSidebar}>
-                <span className={cn("rf-collapse-icon", collapsed && "rotated")}>
-                  <IcChevronLeft />
-                </span>
-              </button>
-            </TooltipTrigger>
-            <TooltipContent side="right" sideOffset={8}>
-              {collapsed ? "Expandir sidebar" : "Colapsar sidebar"}
-            </TooltipContent>
-          </Tooltip>
         </div>
 
         {/* ── Scroll area ───────────────────────────────────────────────── */}
@@ -765,23 +761,6 @@ export function AppSidebar() {
 
         </div>
 
-        {/* ── Theme toggle ───────────────────────────────────────────────── */}
-        <div className="rf-theme-row">
-          <span className={cn("rf-theme-label", collapsed && "rf-hidden-label")}>
-            {theme === "dark" ? "Modo escuro" : "Modo claro"}
-          </span>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button className="rf-theme-toggle-btn" onClick={toggleTheme}>
-                {theme === "dark" ? <IcSun /> : <IcMoon />}
-              </button>
-            </TooltipTrigger>
-            <TooltipContent side="right" sideOffset={8}>
-              {theme === "dark" ? "Alternar para claro" : "Alternar para escuro"}
-            </TooltipContent>
-          </Tooltip>
-        </div>
-
         {/* ── Workspace switcher ─────────────────────────────────────────── */}
         <div className="rf-sb-workspace">
           <Tooltip>
@@ -824,40 +803,47 @@ export function AppSidebar() {
                 {formatRoleName(session?.role)}
               </div>
             </div>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button
-                  type="button"
-                  className="rf-user-menu-trigger"
-                  aria-label="Menu da conta"
+            <div className="rf-user-actions">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    className="rf-user-menu-trigger"
+                    aria-label="Menu da conta"
+                  >
+                    <IcDotsV />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent
+                  side="right"
+                  align="end"
+                  sideOffset={8}
+                  className="rf-user-dropdown-content"
                 >
-                  <IcDotsV />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent
-                side="right"
-                align="end"
-                sideOffset={8}
-                className="rf-user-dropdown-content"
-              >
-                <DropdownMenuItem asChild>
-                  <Link href="/cockpit/perfil" className="rf-user-dropdown-link cursor-pointer">
-                    <User className="size-[18px] shrink-0" strokeWidth={1.8} />
-                    Perfil
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  variant="destructive"
-                  onSelect={() => {
-                    void signOut({ callbackUrl: "/auth" })
-                  }}
-                >
-                  <IcSair />
-                  Sair
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+                  <DropdownMenuItem onSelect={() => toggleTheme()}>
+                    {theme === "dark" ? <IcSun /> : <IcMoon />}
+                    {theme === "dark" ? "Modo claro" : "Modo escuro"}
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild>
+                    <Link href="/cockpit/perfil" className="rf-user-dropdown-link cursor-pointer">
+                      <User className="size-[18px] shrink-0" strokeWidth={1.8} />
+                      Perfil
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    variant="destructive"
+                    onSelect={() => {
+                      void signOut({ callbackUrl: "/auth" })
+                    }}
+                  >
+                    <IcSair />
+                    Sair
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           </div>
         </div>
 
