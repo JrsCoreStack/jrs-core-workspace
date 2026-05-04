@@ -1,11 +1,13 @@
 "use client"
 
+import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
 import { cn } from "@/lib/utils"
 import { Mail, Smartphone } from "lucide-react"
+import { toast } from "sonner"
 import { useState, type ReactNode } from "react"
-import { Section, SettingRow } from "./shared"
+import { Section, SettingRow, settingsButtonPrimary } from "./shared"
 
 type NotifItem = { id: string; label: string; description: string; default: boolean }
 
@@ -184,6 +186,17 @@ export function NotificationsSection({ userEmail }: { userEmail: string }) {
           }
         />
       </Section>
+
+      <div className="flex justify-end pt-2">
+        <Button
+          type="button"
+          variant="default"
+          className={settingsButtonPrimary}
+          onClick={() => toast.success("Preferências de notificação salvas (demonstração).")}
+        >
+          Salvar preferências
+        </Button>
+      </div>
     </div>
   )
 }

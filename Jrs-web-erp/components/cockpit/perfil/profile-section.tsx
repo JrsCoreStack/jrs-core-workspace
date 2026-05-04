@@ -12,6 +12,8 @@ import {
 import { Switch } from "@/components/ui/switch"
 import { cn } from "@/lib/utils"
 import {
+  Activity,
+  Camera,
   CheckSquare,
   Edit3,
   MapPin,
@@ -19,12 +21,11 @@ import {
   Share2,
   Target,
   Users,
-  Activity,
 } from "lucide-react"
+import { useRef, useState, type ChangeEvent } from "react"
 import { useTheme } from "next-themes"
-import { useState } from "react"
 import { toast } from "sonner"
-import { RoleChip, Section, SettingRow, settingsButtonNeutral } from "./shared"
+import { RoleChip, Section, SettingRow, settingsButtonNeutral, settingsButtonPrimary } from "./shared"
 
 type ActivityItem = {
   id: string
@@ -284,6 +285,9 @@ export function ProfileEdit({
   const [compactSidebar, setCompactSidebar] = useState(false)
   const [showActivity, setShowActivity] = useState(true)
   const [saving, setSaving] = useState(false)
+  const avatarInputRef = useRef<HTMLInputElement>(null)
+  const displayName =
+    `${first} ${last}`.trim().replace(/\s+/g, " ") || userName
 
   async function handleSave() {
     setSaving(true)
@@ -291,6 +295,13 @@ export function ProfileEdit({
     toast.success("Perfil atualizado com sucesso.")
     setSaving(false)
     onBack()
+  }
+
+  function onAvatarPick(e: ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0]
+    if (f)
+      toast.success(`Foto recebida: ${f.name} (somente pré-visualização até integrar salvamento).`)
+    e.target.value = ""
   }
 
   return (
@@ -305,33 +316,69 @@ export function ProfileEdit({
         </h2>
       </div>
 
-      {/* Foto */}
+      {/* Foto — hover no avatar ou no nome mostra câmera por cima da logo */}
       <Section title="Foto de perfil">
-        <div className="flex flex-col items-start gap-4 p-5 sm:flex-row sm:items-center">
-          <div className="flex size-16 items-center justify-center rounded-full bg-linear-to-br from-primary to-chart-2">
-            <span className="font-display text-lg font-extrabold text-white">
-              {initials}
+        <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:gap-6">
+          <input
+            ref={avatarInputRef}
+            id="profile-avatar-upload"
+            type="file"
+            accept="image/png,image/jpeg,image/jpg"
+            className="sr-only"
+            onChange={onAvatarPick}
+          />
+          <label
+            htmlFor="profile-avatar-upload"
+            className={cn(
+              "group/av flex cursor-pointer gap-4 rounded-xl border border-transparent p-1 -m-1 transition-colors outline-none",
+              "hover:border-[color:var(--rf-accent-border)] hover:bg-muted/30",
+              "focus-within:border-[color:var(--rf-accent-border)] focus-within:ring-2 focus-within:ring-[var(--rf-accent-soft)] focus-within:ring-offset-2 focus-within:ring-offset-[var(--rf-bg-surface)] dark:focus-within:ring-offset-background"
+            )}
+          >
+            <span className="relative flex size-16 shrink-0 overflow-hidden rounded-full bg-linear-to-br from-primary to-chart-2 shadow-inner ring-2 ring-background">
+              <span className="relative z-[1] flex size-full items-center justify-center font-display text-lg font-extrabold text-white">
+                {initials}
+              </span>
+              <span
+                className={cn(
+                  "pointer-events-none absolute inset-0 z-[2] flex items-center justify-center",
+                  "bg-black/55 opacity-0 transition-opacity duration-200",
+                  "group-hover/av:opacity-100"
+                )}
+              >
+                <Camera className="size-7 text-white" strokeWidth={1.85} aria-hidden />
+              </span>
             </span>
-          </div>
-          <div className="flex-1">
-            <p className="text-sm font-semibold text-card-foreground">{userName}</p>
-            <p className="mt-0.5 text-[11.5px] text-muted-foreground">
-              PNG ou JPG · Máx 5MB · Mín 200×200px
-            </p>
-            <div className="mt-2 flex gap-2">
-              <Button variant="outline" size="sm" className={settingsButtonNeutral}>
+            <span className="flex min-w-0 flex-col items-start pt-0.5">
+              <span className="text-sm font-semibold text-card-foreground transition-colors group-hover/av:text-[var(--rf-accent)]">
+                {displayName}
+              </span>
+              <span className="mt-0.5 text-left text-[11.5px] text-muted-foreground">
+                PNG ou JPG · Máx 5MB · Mín 200×200px
+              </span>
+            </span>
+          </label>
+          <div className="flex w-full shrink-0 flex-wrap gap-2 sm:w-auto sm:flex-col sm:items-stretch">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className={settingsButtonNeutral}
+                onClick={() => avatarInputRef.current?.click()}
+              >
                 Fazer upload
               </Button>
               <Button
+                type="button"
                 variant="outline"
                 size="sm"
-                className="border-destructive/30 bg-transparent text-destructive hover:bg-destructive/10 hover:text-destructive"
+                className="rounded-lg border-destructive/30 bg-transparent text-destructive hover:bg-destructive/10 hover:text-destructive"
+                onClick={() => toast.message("Demonstração — foto não removida.")}
               >
                 Remover
               </Button>
             </div>
           </div>
-        </div>
       </Section>
 
       {/* Pessoais */}
@@ -395,7 +442,7 @@ export function ProfileEdit({
         <Button variant="outline" className={settingsButtonNeutral} onClick={onBack}>
           Cancelar
         </Button>
-        <Button onClick={handleSave} disabled={saving}>
+        <Button variant="default" className={settingsButtonPrimary} onClick={handleSave} disabled={saving}>
           {saving ? "Salvando…" : "Salvar perfil"}
         </Button>
       </div>

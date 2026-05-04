@@ -3,12 +3,18 @@
 import { cn } from "@/lib/utils"
 import type { ReactNode } from "react"
 
-/** Botão secundário cinza nas configurações (como Alterar plano / Trocar no Faturamento). */
+/** Botão secundário cinza (cantos ~8px — alinhado ao layout de Faturamento / Membros). */
 export const settingsButtonNeutral = cn(
-  "rounded-xl border-[color:var(--rf-border-default)] bg-[var(--rf-bg-elevated)]",
+  "rounded-lg border-[color:var(--rf-border-default)] bg-[var(--rf-bg-elevated)]",
   "text-[13px] font-semibold text-[var(--rf-text-secondary)] shadow-none",
   "hover:bg-[var(--rf-bg-hover)] hover:text-[var(--rf-text-primary)]",
   "dark:bg-[var(--rf-bg-surface)]"
+)
+
+/** Botão primário nas configurações (Convidar, Salvar destacado). */
+export const settingsButtonPrimary = cn(
+  "rounded-lg border-0 bg-[var(--rf-accent)] text-[13px] font-semibold text-white shadow-none",
+  "hover:bg-[var(--rf-accent-hover)] shadow-[0_2px_8px_rgba(123,97,255,0.35)] hover:shadow-[0_4px_12px_rgba(123,97,255,0.4)]"
 )
 
 /* ─────────────── Título de grupo (label + linha) — padrão Orbit / cockpit ─────────────── */
@@ -84,7 +90,7 @@ export function SettingRow({
   danger = false,
   className,
 }: {
-  label: string
+  label: ReactNode
   description?: string
   control: ReactNode
   danger?: boolean
@@ -101,14 +107,14 @@ export function SettingRow({
       )}
     >
       <div className="min-w-0">
-        <p
+        <div
           className={cn(
             "text-sm font-semibold",
             danger ? "text-destructive" : "text-[var(--rf-text-primary)]"
           )}
         >
           {label}
-        </p>
+        </div>
         {description && (
           <p className="mt-0.5 text-[12px] text-[var(--rf-text-secondary)]">{description}</p>
         )}

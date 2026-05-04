@@ -1,6 +1,24 @@
 "use client"
 
 import { Button } from "@/components/ui/button"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import {
   Select,
@@ -11,27 +29,43 @@ import {
 } from "@/components/ui/select"
 import { cn } from "@/lib/utils"
 import { ImageIcon } from "lucide-react"
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { toast } from "sonner"
 import {
   SettingRow,
   SettingsCard,
   SettingsGroupTitle,
   settingsButtonNeutral,
+  settingsButtonPrimary,
 } from "./shared"
 
 const rowPadding = "px-6 py-5 sm:py-6"
 const rfSelectTrigger =
-  "w-full min-w-0 rounded-xl border-[color:var(--rf-border-default)] bg-[var(--rf-bg-elevated)] font-[family-name:var(--rf-font-body)] text-[var(--rf-text-primary)] hover:bg-[var(--rf-bg-hover)]"
+  "w-full min-w-0 rounded-lg border-[color:var(--rf-border-default)] bg-[var(--rf-bg-elevated)] font-[family-name:var(--rf-font-body)] text-[var(--rf-text-primary)] hover:bg-[var(--rf-bg-hover)]"
 
 export function WorkspaceSection({ workspaceName }: { workspaceName: string }) {
-  const [name, setName] = useState(workspaceName || "OTicket Tecnologia Ltda")
-  const [slug, setSlug] = useState("oticket")
-  const [tz, setTz] = useState("america-sao-paulo")
-  const [currency, setCurrency] = useState("brl")
-  const [lang, setLang] = useState("pt-br")
-  const [weekStart, setWeekStart] = useState("monday")
+  const baselineName = workspaceName || "OTicket Tecnologia Ltda"
+  const baselineSlug = "oticket"
+  const baselineTz = "america-sao-paulo"
+  const baselineCurrency = "brl"
+  const baselineLang = "pt-br"
+  const baselineWeekStart = "monday"
+
+  const [name, setName] = useState(baselineName)
+  const [slug, setSlug] = useState(baselineSlug)
+  const [tz, setTz] = useState(baselineTz)
+  const [currency, setCurrency] = useState(baselineCurrency)
+  const [lang, setLang] = useState(baselineLang)
+  const [weekStart, setWeekStart] = useState(baselineWeekStart)
   const [saving, setSaving] = useState(false)
+  const [uploadDialogOpen, setUploadDialogOpen] = useState(false)
+  const [pickedFileLabel, setPickedFileLabel] = useState<string | null>(null)
+  const [deleteWorkspaceOpen, setDeleteWorkspaceOpen] = useState(false)
+  const fileRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    setName(baselineName)
+  }, [baselineName])
 
   async function handleSave() {
     setSaving(true)
@@ -40,8 +74,92 @@ export function WorkspaceSection({ workspaceName }: { workspaceName: string }) {
     setSaving(false)
   }
 
+  function handleCancel() {
+    setName(baselineName)
+    setSlug(baselineSlug)
+    setTz(baselineTz)
+    setCurrency(baselineCurrency)
+    setLang(baselineLang)
+    setWeekStart(baselineWeekStart)
+    toast.message("Alterações descartadas.")
+  }
+
+  function onLogoFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0]
+    if (f) {
+      setPickedFileLabel(f.name)
+      setUploadDialogOpen(true)
+    }
+    e.target.value = ""
+  }
+
+  function confirmLogoUpload() {
+    toast.success(
+      pickedFileLabel
+        ? `Logo atualizada (${pickedFileLabel}).`
+        : "Logo atualizada."
+    )
+    setUploadDialogOpen(false)
+    setPickedFileLabel(null)
+  }
+
   return (
     <div className="space-y-10">
+      <input
+        ref={fileRef}
+        type="file"
+        accept="image/png,image/svg+xml,.svg,.png"
+        className="sr-only"
+        tabIndex={-1}
+        onChange={onLogoFileChange}
+      />
+
+      <Dialog open={uploadDialogOpen} onOpenChange={setUploadDialogOpen}>
+        <DialogContent showCloseButton>
+          <DialogHeader>
+            <DialogTitle>Confirmar logo</DialogTitle>
+            <DialogDescription>
+              {pickedFileLabel
+                ? `Arquivo selecionado: ${pickedFileLabel}. Confirmar uso como logo da empresa?`
+                : "Confirmar atualização da logo?"}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              className={settingsButtonNeutral}
+              onClick={() => setUploadDialogOpen(false)}
+            >
+              Cancelar
+            </Button>
+            <Button variant="default" className={settingsButtonPrimary} onClick={confirmLogoUpload}>
+              Confirmar upload
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={deleteWorkspaceOpen} onOpenChange={setDeleteWorkspaceOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir workspace?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Todos os dados serão removidos de forma permanente. Esta ação não pode ser
+              desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="gap-2">
+            <AlertDialogCancel className={settingsButtonNeutral}>Voltar</AlertDialogCancel>
+            <AlertDialogAction
+              className="rounded-lg bg-destructive text-white hover:bg-destructive/90"
+              onClick={() => toast.error("Demonstração — exclusão não executada.")}
+            >
+              Excluir definitivamente
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* — Identidade — */}
       <div className="space-y-3">
         <SettingsGroupTitle title="Identidade da empresa" />
@@ -52,15 +170,26 @@ export function WorkspaceSection({ workspaceName }: { workspaceName: string }) {
             description="Exibida na sidebar e nos relatórios exportados."
             control={
               <div className="flex items-center gap-3">
-                <div className="flex size-14 shrink-0 items-center justify-center rounded-xl border border-dashed border-[color:var(--rf-border-strong)] bg-[var(--rf-bg-elevated)]">
+                <button
+                  type="button"
+                  onClick={() => fileRef.current?.click()}
+                  className={cn(
+                    "flex size-14 shrink-0 cursor-pointer items-center justify-center rounded-xl border-2 border-dashed",
+                    "border-[color:var(--rf-accent-border)] bg-[var(--rf-bg-elevated)] outline-none transition-colors",
+                    "hover:border-[var(--rf-accent)] hover:bg-[var(--rf-accent-soft)]",
+                    "focus-visible:ring-2 focus-visible:ring-[var(--rf-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--rf-bg-surface)]"
+                  )}
+                  aria-label="Selecionar logo da empresa"
+                >
                   <ImageIcon className="size-5 text-[var(--rf-text-muted)]" strokeWidth={1.6} />
-                </div>
+                </button>
                 <div className="flex flex-col items-start gap-1">
                   <Button
                     type="button"
                     variant="outline"
                     size="sm"
                     className={cn("gap-2", settingsButtonNeutral)}
+                    onClick={() => fileRef.current?.click()}
                   >
                     Fazer upload
                   </Button>
@@ -79,7 +208,7 @@ export function WorkspaceSection({ workspaceName }: { workspaceName: string }) {
               <Input
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="w-full min-w-0 rounded-xl border-[color:var(--rf-border-default)] bg-[var(--rf-bg-elevated)]"
+                className="w-full min-w-0 rounded-lg border-[color:var(--rf-border-default)] bg-[var(--rf-bg-elevated)]"
               />
             }
           />
@@ -93,7 +222,7 @@ export function WorkspaceSection({ workspaceName }: { workspaceName: string }) {
                 onChange={(e) =>
                   setSlug(e.target.value.replace(/\s+/g, "-").toLowerCase())
                 }
-                className="w-full min-w-0 rounded-xl border-[color:var(--rf-border-default)] bg-[var(--rf-bg-elevated)] font-mono text-[12.5px]"
+                className="w-full min-w-0 rounded-lg border-[color:var(--rf-border-default)] bg-[var(--rf-bg-elevated)] font-mono text-[12.5px]"
               />
             }
           />
@@ -196,7 +325,8 @@ export function WorkspaceSection({ workspaceName }: { workspaceName: string }) {
               type="button"
               variant="outline"
               size="sm"
-              className="shrink-0 border-destructive/40 bg-destructive/10 text-destructive hover:bg-destructive/15 hover:text-destructive dark:bg-destructive/15"
+              className="shrink-0 rounded-lg border-destructive/40 bg-destructive/10 text-destructive hover:bg-destructive/15 hover:text-destructive dark:bg-destructive/15"
+              onClick={() => setDeleteWorkspaceOpen(true)}
             >
               Excluir workspace
             </Button>
@@ -209,14 +339,16 @@ export function WorkspaceSection({ workspaceName }: { workspaceName: string }) {
           type="button"
           variant="outline"
           className={cn("w-full sm:w-auto", settingsButtonNeutral)}
+          onClick={handleCancel}
         >
           Cancelar
         </Button>
         <Button
           type="button"
+          variant="default"
           disabled={saving}
           onClick={() => void handleSave()}
-          className="w-full rounded-xl bg-[var(--rf-accent)] px-5 text-[13px] font-semibold text-white shadow-[0_2px_10px_rgba(123,97,255,0.35)] hover:bg-[var(--rf-accent-hover)] sm:w-auto"
+          className={cn("w-full sm:w-auto", settingsButtonPrimary, "px-5")}
         >
           {saving ? "Salvando…" : "Salvar alterações"}
         </Button>
