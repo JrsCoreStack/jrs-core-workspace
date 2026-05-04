@@ -33,7 +33,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { SidebarTrigger } from "@/components/ui/sidebar"
 import {
   Plus,
   Pencil,
@@ -1474,9 +1473,8 @@ function KpisPageInner() {
         display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12,
       }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <SidebarTrigger />
           <div>
-            <div style={{ fontFamily: "var(--rf-font-display)", fontSize: 20, fontWeight: 800, color: "var(--rf-text-primary)", letterSpacing: "-0.3px" }}>
+            <div style={{ fontFamily: "var(--font-syne, 'Plus Jakarta Sans', system-ui, sans-serif)", fontSize: 18, fontWeight: 600, color: "var(--rf-text-primary)", letterSpacing: "-0.2px" }}>
               Indicadores (KPIs)
             </div>
             <div style={{ fontSize: 12, color: "var(--rf-text-secondary)", marginTop: 3 }}>

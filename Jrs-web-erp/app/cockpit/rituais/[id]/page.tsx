@@ -3,7 +3,6 @@
 import Link from "next/link"
 import { useParams, useRouter } from "next/navigation"
 import { useCallback, useEffect, useState } from "react"
-import { SidebarTrigger } from "@/components/ui/sidebar"
 import { cn } from "@/lib/utils"
 import api from "@/utils/api"
 import { toast } from "sonner"
@@ -444,7 +443,6 @@ export default function RitualDetailPage() {
 
       {/* Topbar */}
       <div className="dt-topbar">
-        <SidebarTrigger className="h-8 w-8" />
         <Link href="/cockpit/rituais" className="dt-back-btn">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
             <polyline points="15 18 9 12 15 6"/>

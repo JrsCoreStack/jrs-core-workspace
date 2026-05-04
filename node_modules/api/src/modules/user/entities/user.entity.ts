@@ -1,11 +1,10 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { UserAccountEntity } from 'src/modules/user_account/entities/user_account.entity';
 import { UserStatus } from 'src/utils/enums/user_status.enum';
+import { UserRole } from 'src/utils/enums/user_role.enum';
 import {
   Column,
   CreateDateColumn,
   Entity,
-  OneToMany,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
@@ -52,6 +51,21 @@ export class UserEntity {
   @Column({ name: 'status', type: 'enum', enum: UserStatus, enumName: 'user_status_enum', nullable: false, default: UserStatus.ACTIVE })
   status: UserStatus;
 
+  @ApiProperty({
+    enum: UserRole,
+    example: UserRole.ADMIN,
+    description: 'Papel workspace (persistido sem tabelas erp_roles / erp_user_account)',
+  })
+  @Column({
+    name: 'role',
+    type: 'enum',
+    enum: UserRole,
+    enumName: 'user_role_enum',
+    nullable: false,
+    default: UserRole.ADMIN,
+  })
+  role: UserRole;
+
   @ApiProperty({ example: '2024-01-01T00:00:00Z' })
   @CreateDateColumn({ name: 'created_at' })
   created_at: Date;
@@ -59,7 +73,4 @@ export class UserEntity {
   @ApiProperty({ example: '2024-01-01T00:00:00Z' })
   @UpdateDateColumn({ name: 'updated_at' })
   updated_at: Date;
-
-  @OneToMany(() => UserAccountEntity, (user_account) => user_account.user)
-  user_accounts: UserAccountEntity[];
 }

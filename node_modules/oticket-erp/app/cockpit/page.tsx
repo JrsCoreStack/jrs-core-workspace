@@ -4,7 +4,6 @@ import Link from "next/link"
 import { useEffect, useMemo, useState } from "react"
 import api from "@/utils/api"
 import { COCKPIT_AREAS, areaColor, areaLabel, ACTION_PLAN_STATUS_LABELS } from "@/lib/cockpit/constants"
-import { SidebarTrigger } from "@/components/ui/sidebar"
 import { cn } from "@/lib/utils"
 
 /* ──────────────────────────────────────────────────────────────────────────
@@ -426,8 +425,8 @@ export default function CockpitPage() {
         .cp-topbar-left  { display: flex; align-items: flex-start; gap: 10px; min-width: 0; }
         .cp-page-title   {
           font-family: var(--rf-font-display, "Plus Jakarta Sans", system-ui, sans-serif);
-          font-size: 20px; font-weight: 800;
-          color: var(--rf-text-primary); letter-spacing: -0.3px;
+          font-size: 18px; font-weight: 600;
+          color: var(--rf-text-primary); letter-spacing: -0.2px;
           line-height: 1.2;
         }
         .cp-page-sub     { font-size: 12px; color: var(--rf-text-secondary); margin-top: 3px; }
@@ -619,7 +618,6 @@ export default function CockpitPage() {
         {/* ── Topbar ─────────────────────────────────────────────────────── */}
         <div className="cp-topbar">
           <div className="cp-topbar-left">
-            <SidebarTrigger style={{ marginTop: 2 }} />
             <div>
               <div className="cp-page-title">Cockpit Estratégico</div>
               <div className="cp-page-sub">Acompanhamento de metas e execução tática.</div>

@@ -48,9 +48,7 @@ export class UserService {
   }
 
   async findAll(search?: string): Promise<UserEntity[]> {
-    const queryBuilder = this.userRepository
-      .createQueryBuilder('user')
-      .leftJoinAndSelect('user.user_accounts', 'user_accounts');
+    const queryBuilder = this.userRepository.createQueryBuilder('user');
 
     if (search) {
       const searchTerm = search.trim();
@@ -84,7 +82,6 @@ export class UserService {
   async findById(id: string): Promise<UserEntity> {
     const user = await this.userRepository.findOne({
       where: { id },
-      relations: ['user_accounts'],
     });
     if (!user) {
       throw new BadRequestException(`Usuário com ID ${id} não encontrado.`);

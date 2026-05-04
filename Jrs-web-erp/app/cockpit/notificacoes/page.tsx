@@ -1,6 +1,5 @@
 "use client"
 
-import { Header } from "@/components/ui/header"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { COCKPIT_MAIN_CLASS } from "@/lib/cockpit/cockpit-page-shell"
@@ -358,45 +357,74 @@ export default function CockpitNotificacoesPage() {
 
   return (
     <>
-      <Header
-        title="Notificações"
-        description={
-          unreadCount > 0
-            ? `${unreadCount} não lida${unreadCount !== 1 ? "s" : ""}`
-            : "Tudo em dia"
+      <style>{`
+        .notif-topbar {
+          display: flex;
+          align-items: flex-start;
+          justify-content: space-between;
+          gap: 12px;
+          padding: 16px 20px 14px;
+          background: var(--rf-bg-surface, #fff);
+          border-bottom: 1px solid var(--rf-border-subtle, rgba(0,0,0,0.05));
+          flex-shrink: 0;
+          flex-wrap: wrap;
         }
-        actions={
-          <div className="flex flex-wrap gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-2 bg-transparent"
-              disabled={staleRunning}
-              onClick={handleStaleCheck}
-            >
-              <RefreshCw className={cn("h-4 w-4", staleRunning && "animate-spin")} />
-              Verificar KPIs
-            </Button>
-            {unreadCount > 0 && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="gap-2 bg-transparent"
-                onClick={handleMarkAllRead}
-              >
-                <CheckCheck className="h-4 w-4" />
-                Marcar todas como lidas
-              </Button>
-            )}
-            <Button asChild variant="outline" size="sm" className="gap-2 bg-transparent">
-              <Link href="/cockpit/notificacoes/configurar">
-                <Settings className="h-4 w-4" />
-                Configurar
-              </Link>
-            </Button>
+        .notif-topbar-left { display: flex; align-items: center; gap: 12px; }
+        .notif-page-title {
+          font-family: var(--font-syne, "Plus Jakarta Sans", system-ui, sans-serif);
+          font-size: 18px;
+          font-weight: 600;
+          color: var(--rf-text-primary, #0d0f14);
+          letter-spacing: -0.2px;
+        }
+        .notif-page-sub { font-size: 12px; color: var(--rf-text-secondary, #5a6478); margin-top: 3px; }
+        .notif-topbar-right { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+        .notif-btn {
+          padding: 7px 14px; border-radius: 12px;
+          font-family: var(--rf-font-body, sans-serif); font-size: 12px; font-weight: 600;
+          cursor: pointer; transition: all 0.18s cubic-bezier(0.4,0,0.2,1);
+          border: none; white-space: nowrap;
+          display: inline-flex; align-items: center; gap: 6px;
+          background: var(--rf-bg-elevated); color: var(--rf-text-secondary);
+          border: 1px solid var(--rf-border-default);
+          text-decoration: none;
+        }
+        .notif-btn:hover { border-color: var(--rf-border-strong); color: var(--rf-text-primary); }
+        .notif-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+      `}</style>
+
+      <div className="notif-topbar">
+        <div className="notif-topbar-left">
+          <div>
+            <h1 className="notif-page-title">Notificações</h1>
+            <p className="notif-page-sub">
+              {unreadCount > 0
+                ? `${unreadCount} não lida${unreadCount !== 1 ? "s" : ""}`
+                : "Tudo em dia"}
+            </p>
           </div>
-        }
-      />
+        </div>
+        <div className="notif-topbar-right">
+          <button
+            className="notif-btn"
+            disabled={staleRunning}
+            onClick={handleStaleCheck}
+          >
+            <RefreshCw style={{ width: 13, height: 13 }} className={staleRunning ? "animate-spin" : ""} />
+            Verificar KPIs
+          </button>
+          {unreadCount > 0 && (
+            <button className="notif-btn" onClick={handleMarkAllRead}>
+              <CheckCheck style={{ width: 13, height: 13 }} />
+              Marcar todas como lidas
+            </button>
+          )}
+          <Link href="/cockpit/notificacoes/configurar" className="notif-btn">
+            <Settings style={{ width: 13, height: 13 }} />
+            Configurar
+          </Link>
+        </div>
+      </div>
 
       <main className={COCKPIT_MAIN_CLASS}>
         {/* Tabs */}

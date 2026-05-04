@@ -36,7 +36,6 @@ import {
   Clock,
   X,
 } from "lucide-react"
-import { SidebarTrigger } from "@/components/ui/sidebar"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import api from "@/utils/api"
 import { toastApiError } from "@/lib/cockpit/api-error"
@@ -404,10 +403,10 @@ export default function RituaisPage() {
         .rt-topbar-left { display: flex; align-items: center; gap: 12px; }
         .rt-page-title {
           font-family: var(--font-syne, "Plus Jakarta Sans", system-ui, sans-serif);
-          font-size: 20px;
-          font-weight: 800;
+          font-size: 18px;
+          font-weight: 600;
           color: var(--rf-text-primary, #0d0f14);
-          letter-spacing: -0.3px;
+          letter-spacing: -0.2px;
         }
         .rt-page-sub { font-size: 12px; color: var(--rf-text-secondary, #5a6478); margin-top: 3px; }
         .rt-btn-new {
@@ -748,7 +747,6 @@ export default function RituaisPage() {
       {/* Topbar */}
       <div className="rt-topbar">
         <div className="rt-topbar-left">
-          <SidebarTrigger className="h-8 w-8" />
           <div>
             <h1 className="rt-page-title">Rituais</h1>
             <p className="rt-page-sub">

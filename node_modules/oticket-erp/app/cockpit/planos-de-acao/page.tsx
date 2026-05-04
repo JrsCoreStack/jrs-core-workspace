@@ -5,7 +5,6 @@ import { useSearchParams } from "next/navigation"
 import { CreateActionPlanDialog } from "@/components/cockpit/dialogs/create-action-plan-dialog"
 import { KanbanBoard } from "@/components/cockpit/planos-de-acao/kanban-board"
 import { ActionPlanDetailsDialog } from "@/components/cockpit/planos-de-acao/action-plan-details-dialog"
-import { SidebarTrigger } from "@/components/ui/sidebar"
 import api from "@/utils/api"
 import { normalizeAreaSlug } from "@/lib/cockpit/constants"
 import { toastApiError } from "@/lib/cockpit/api-error"
@@ -171,11 +170,11 @@ function PlanosDeAcaoPageInner() {
           margin-bottom: 14px;
         }
         .pa-title {
-          font-family: var(--font-display, "Plus Jakarta Sans", system-ui, sans-serif);
-          font-size: 20px;
-          font-weight: 800;
+          font-family: var(--font-syne, "Plus Jakarta Sans", system-ui, sans-serif);
+          font-size: 18px;
+          font-weight: 600;
           color: var(--rf-text-primary);
-          letter-spacing: -0.3px;
+          letter-spacing: -0.2px;
         }
         .pa-sub {
           font-size: 12px;
@@ -339,7 +338,6 @@ function PlanosDeAcaoPageInner() {
         <div className="pa-topbar">
           <div className="pa-top-row">
             <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
-              <SidebarTrigger className="pa-sidebar-trigger" style={{ marginTop: 2 }} />
               <div>
                 <div className="pa-title">Planos de Ação</div>
                 <div className="pa-sub">

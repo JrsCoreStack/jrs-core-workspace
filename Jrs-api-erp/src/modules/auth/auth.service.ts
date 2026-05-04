@@ -14,6 +14,11 @@ import {
   VIRTUAL_COCKPIT_ACCOUNT_ID,
   VIRTUAL_COCKPIT_ACCOUNT_NAME,
 } from './virtual-account';
+import { UserRole } from 'src/utils/enums/user_role.enum';
+import {
+  permissionsForUserRole,
+  virtualAccountLevelString,
+} from './user-role-permissions';
 
 @Injectable()
 export class AuthService {
@@ -75,12 +80,17 @@ export class AuthService {
     // Atualizar último login
     await this.userService.updateLastLogin(userEntity.id);
 
-    /* Projeto sem vínculo user↔account: sempre conta virtual. Role/permissões vazios. */
+    /* Conta virtual cockpit; papel e permissões vêm da coluna `erp_user.role`. */
     const currentAccountId = VIRTUAL_COCKPIT_ACCOUNT_ID;
     const currentAccount = {
       id: VIRTUAL_COCKPIT_ACCOUNT_ID,
       name: VIRTUAL_COCKPIT_ACCOUNT_NAME,
     };
+
+    const userRole = userEntity.role ?? UserRole.ADMIN;
+    const levelStr = virtualAccountLevelString(userRole);
+    const permissions = permissionsForUserRole(userRole);
+
     const accounts = [
       {
         id: VIRTUAL_COCKPIT_ACCOUNT_ID,
@@ -88,12 +98,11 @@ export class AuthService {
         code: '',
         email: '',
         type: 0,
-        level: '',
+        level: levelStr,
       },
     ];
 
-    const role = null;
-    const permissions: string[] = [];
+    const role = userRole;
 
     const payload = {
       sub: userEntity.id,
@@ -116,7 +125,7 @@ export class AuthService {
       },
       accounts: accounts,
       current_account_id: currentAccountId,
-      role: role || null,
+      role: role ?? null,
       permissions: permissions || [],
       token,
       expiresIn: String(process.env.JWT_EXPIRATION_TIME),
@@ -126,7 +135,7 @@ export class AuthService {
 
   /**
    * Emite novo JWT com `current_account_id` atualizado.
-   * Não há `erp_user_account` neste projeto — valida só token + existência da conta em `erp_account`.
+   * Conta virtual cockpit: não consulta `erp_account`.
    */
   async updateToken(
     currentToken: string,
@@ -141,7 +150,6 @@ export class AuthService {
     permissions: string[];
   }> {
     try {
-      const account = await this.accountService.findById(account_id);
       const decodedToken = this.jwtService.decode(currentToken) as {
         [key: string]: unknown;
       } | null;
@@ -164,6 +172,21 @@ export class AuthService {
 
       const token = this.jwtService.sign(nextPayload);
 
+      if (account_id === VIRTUAL_COCKPIT_ACCOUNT_ID) {
+        const userEntity = await this.userService.findById(userId);
+        const userRole = userEntity.role ?? UserRole.ADMIN;
+        return {
+          token,
+          account: {
+            id: VIRTUAL_COCKPIT_ACCOUNT_ID,
+            name: VIRTUAL_COCKPIT_ACCOUNT_NAME,
+          },
+          role: userRole,
+          permissions: permissionsForUserRole(userRole),
+        };
+      }
+
+      const account = await this.accountService.findById(account_id);
       return {
         token,
         account,

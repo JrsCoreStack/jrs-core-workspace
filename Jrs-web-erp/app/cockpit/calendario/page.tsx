@@ -1,7 +1,6 @@
 "use client"
 
 import { useEffect, useMemo, useState, useCallback } from "react"
-import { SidebarTrigger } from "@/components/ui/sidebar"
 import api from "@/utils/api"
 import { COCKPIT_AREAS, normalizeAreaSlug } from "@/lib/cockpit/constants"
 import Link from "next/link"
@@ -320,8 +319,8 @@ export default function CockpitCalendarioPage() {
         }
         .cal-title-group { display:flex;align-items:center;gap:10px; }
         .cal-page-title {
-          font-family:var(--font-display,'Plus Jakarta Sans',system-ui,sans-serif);
-          font-size:20px;font-weight:800;color:var(--rf-text-primary);letter-spacing:-0.3px;
+          font-family: var(--font-syne, 'Plus Jakarta Sans', system-ui, sans-serif);
+          font-size: 18px; font-weight: 600; color: var(--rf-text-primary); letter-spacing: -0.2px;
         }
         .cal-nav { display:flex;align-items:center;gap:5px; }
         .cal-nav-btn {
@@ -723,13 +722,6 @@ export default function CockpitCalendarioPage() {
         <div className="cal-topbar">
           <div className="cal-top-row">
             <div className="cal-title-group">
-              <SidebarTrigger style={{
-                width:34,height:34,borderRadius:8,
-                border:"1px solid var(--rf-border-default)",
-                background:"var(--rf-bg-elevated)",cursor:"pointer",
-                color:"var(--rf-text-secondary)",display:"grid",placeItems:"center",
-                flexShrink:0,
-              }}/>
               <div className="cal-page-title">
                 {view==="missed"?"Não Realizadas":"Calendário"}
               </div>

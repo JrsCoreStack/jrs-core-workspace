@@ -2,7 +2,6 @@
 
 import { Search } from "lucide-react"
 import { Input } from "@/components/ui/input"
-import { SidebarTrigger } from "./sidebar"
 import { cn } from "@/lib/utils"
 
 interface HeaderProps {
@@ -17,14 +16,13 @@ export function Header({ title, description, actions, displayTitle }: HeaderProp
   return (
     <header className="flex shrink-0 flex-col gap-4 border-b border-border bg-background px-4 py-4 sm:flex-row sm:items-start sm:justify-between sm:px-6">
       <div className="flex min-w-0 items-start gap-3">
-        <SidebarTrigger className="-ml-1 shrink-0" />
         <div className="min-w-0 flex-1">
           <h1
             className={cn(
               "leading-tight text-foreground",
               displayTitle
-                ? "font-display text-[22px] font-extrabold tracking-tight sm:text-[26px]"
-                : "text-xl font-bold sm:text-2xl"
+                ? "font-display text-[18px] font-semibold tracking-tight"
+                : "text-[18px] font-semibold tracking-tight"
             )}
           >
             {title}

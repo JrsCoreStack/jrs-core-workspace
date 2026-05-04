@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { Suspense } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { signOut, useSession } from "next-auth/react"
@@ -15,7 +16,9 @@ import {
 } from "@/components/ui/tooltip"
 import { formatRoleName } from "@/utils/role-formatter"
 import { cn } from "@/lib/utils"
+import { isWorkspaceSocioUser } from "@/lib/cockpit/workspace-socio"
 import { OrbitMark } from "@/components/brand/orbit-logo"
+import { CockpitSettingsSidebarPanel } from "@/components/cockpit/cockpit-settings-sidebar-panel"
 import { User } from "lucide-react"
 import {
   DropdownMenu,
@@ -207,51 +210,6 @@ function NavItem({
   return inner
 }
 
-/* ─────────────────── SISTEMA ITEM (sem URL) ─────────────────────────────── */
-function SistemaItem({
-  title,
-  Icon,
-  badge,
-  collapsed,
-  onClick,
-}: {
-  title: string
-  Icon: React.FC
-  badge?: string
-  collapsed: boolean
-  onClick?: () => void
-}) {
-  const inner = (
-    <button
-      className="rf-nav-item w-full"
-      onClick={onClick}
-    >
-      <span className="rf-ni-icon">
-        <Icon />
-      </span>
-      <span className={cn("rf-ni-label", collapsed && "rf-hidden-label")}>
-        {title}
-      </span>
-      {badge && (
-        <span className={cn("rf-ni-badge rf-badge-accent", collapsed && "rf-hidden-label")}>
-          {badge}
-        </span>
-      )}
-    </button>
-  )
-
-  if (collapsed) {
-    return (
-      <Tooltip>
-        <TooltipTrigger asChild>{inner}</TooltipTrigger>
-        <TooltipContent side="right" sideOffset={8}>{title}</TooltipContent>
-      </Tooltip>
-    )
-  }
-
-  return inner
-}
-
 /* ─────────────────── MAIN COMPONENT ────────────────────────────────────── */
 const SIDEBAR_HOVER_LEAVE_MS = 420
 
@@ -299,6 +257,26 @@ export function AppSidebar() {
     const name = currentAccount?.name ?? "Ac"
     return name.slice(0, 2).toUpperCase()
   }, [currentAccount])
+
+  const pathname = usePathname()
+  const settingsDrillDown = pathname === "/cockpit/perfil"
+
+  const workspaceSubtitle = React.useMemo(() => {
+    if (
+      isWorkspaceSocioUser({
+        accountLevel: currentAccount?.level,
+        sessionRole: session?.role,
+        permissions: session?.permissions,
+      })
+    ) {
+      return "Sócio"
+    }
+    return currentAccount?.level ?? "Plano Pro"
+  }, [currentAccount?.level, session?.permissions, session?.role])
+
+  React.useEffect(() => {
+    if (settingsDrillDown) setOpen(true)
+  }, [settingsDrillDown, setOpen])
 
   return (
     <Sidebar
@@ -465,7 +443,17 @@ export function AppSidebar() {
         }
         .rf-nav-active .rf-ni-icon { color: var(--rf-accent); }
 
-        /* ── Icon ── */
+        .rf-nav-item--disabled {
+          opacity: 0.45 !important;
+          pointer-events: none !important;
+          cursor: default !important;
+        }
+        .rf-settings-socio-tag {
+          font-size: 9px; font-weight: 700;
+          letter-spacing: 0.06em;
+          color: var(--rf-text-muted);
+          flex-shrink: 0;
+        }
         .rf-ni-icon {
           width: 18px; height: 18px; flex-shrink: 0;
           color: var(--rf-text-muted);
@@ -690,6 +678,32 @@ export function AppSidebar() {
       {/* ── Inner wrapper ───────────────────────────────────────────────── */}
       <div className="flex h-full flex-col font-(--rf-font-body)">
 
+        {/* Drill-down Configurações: substitui logo + scroll principal */}
+        {settingsDrillDown ? (
+          <>
+            <div className={cn("rf-sb-logo", collapsed && "rf-sb-logo--collapsed")}>
+              <div className="rf-sb-logo-inner">
+                <OrbitMark size={32} className="shrink-0" />
+                <div className={cn("rf-sb-logo-text", collapsed && "rf-hidden-label")}>
+                  <div className="rf-sb-logo-name">Orbit</div>
+                  <div className="rf-sb-logo-tag">Plataforma de Gestão</div>
+                </div>
+              </div>
+            </div>
+            <div className="rf-sb-scroll min-h-0">
+              <Suspense
+                fallback={
+                  <div className="px-3 py-4 text-[13px] text-[var(--rf-text-muted)]">
+                    Carregando…
+                  </div>
+                }
+              >
+                <CockpitSettingsSidebarPanel collapsed={collapsed} />
+              </Suspense>
+            </div>
+          </>
+        ) : (
+          <>
         {/* ── Logo (expandir/recolher: hover na sidebar no desktop) ──────── */}
         <div className={cn("rf-sb-logo", collapsed && "rf-sb-logo--collapsed")}>
           <div className="rf-sb-logo-inner">
@@ -752,15 +766,20 @@ export function AppSidebar() {
               Icon={IcIntegracoes}
               collapsed={collapsed}
             />
-            <SistemaItem
+            <NavItem
               title="Configurações"
+              url="/cockpit/perfil"
               Icon={IcConfiguracoes}
               collapsed={collapsed}
             />
           </div>
 
         </div>
+          </>
+        )}
 
+        {!settingsDrillDown && (
+          <>
         {/* ── Workspace switcher ─────────────────────────────────────────── */}
         <div className="rf-sb-workspace">
           <Tooltip>
@@ -771,9 +790,7 @@ export function AppSidebar() {
                   <div className="rf-workspace-name">
                     {currentAccount?.name ?? "Conta"}
                   </div>
-                  <div className="rf-workspace-plan">
-                    {currentAccount?.level ?? "Plano Pro"}
-                  </div>
+                  <div className="rf-workspace-plan">{workspaceSubtitle}</div>
                 </div>
                 <span className={cn("rf-workspace-chevron", collapsed && "rf-hidden-label")}>
                   <IcChevronDown />
@@ -846,6 +863,8 @@ export function AppSidebar() {
             </div>
           </div>
         </div>
+          </>
+        )}
 
       </div>
     </Sidebar>

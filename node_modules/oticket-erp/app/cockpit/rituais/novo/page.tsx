@@ -2,7 +2,6 @@
 
 import { useRouter } from "next/navigation"
 import { useState, useEffect } from "react"
-import { SidebarTrigger } from "@/components/ui/sidebar"
 import api from "@/utils/api"
 import { toastApiError } from "@/lib/cockpit/api-error"
 import { toast } from "sonner"
@@ -158,8 +157,9 @@ export default function NovoRitualPage() {
         .nrt-back-btn:hover { background: var(--rf-bg-hover); color: var(--rf-text-primary); }
         .nrt-topbar-title {
           font-family: var(--font-syne, "Plus Jakarta Sans", system-ui, sans-serif);
-          font-size: 17px; font-weight: 700;
+          font-size: 18px; font-weight: 600;
           color: var(--rf-text-primary);
+          letter-spacing: -0.2px;
         }
         .nrt-topbar-sub { font-size: 12px; color: var(--rf-text-secondary); margin-top: 2px; }
 
@@ -336,7 +336,6 @@ export default function NovoRitualPage() {
 
       {/* Topbar */}
       <div className="nrt-topbar">
-        <SidebarTrigger className="h-8 w-8" />
         <button className="nrt-back-btn" onClick={() => router.push("/cockpit/rituais")}>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
             <polyline points="15 18 9 12 15 6"/>

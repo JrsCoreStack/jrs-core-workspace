@@ -22,8 +22,9 @@ export function hasPermission(
 export function hasRole(userRole: string | undefined, required: UserRole | UserRole[]): boolean {
   if (!userRole) return false
 
+  const normalized = userRole.trim().toUpperCase()
   const requiredList = Array.isArray(required) ? required : [required]
-  return requiredList.some((r) => userRole === r)
+  return requiredList.some((r) => normalized === String(r).toUpperCase())
 }
 
 /**
