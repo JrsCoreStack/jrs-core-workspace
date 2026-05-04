@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/select"
 import { cn } from "@/lib/utils"
 import { Plus, UserPlus } from "lucide-react"
-import { RoleChip, Section, SettingRow, StatusDot } from "./shared"
+import { RoleChip, Section, SettingRow, StatusDot, settingsButtonNeutral } from "./shared"
 
 type MemberRow = {
   id: string
@@ -102,7 +102,7 @@ export function MembersSection() {
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-end gap-2">
-        <Button size="sm" className="gap-2">
+        <Button size="sm" variant="outline" className={cn("gap-2", settingsButtonNeutral)}>
           <Plus className="size-4" strokeWidth={2.5} />
           Convidar membro
         </Button>
@@ -165,7 +165,7 @@ export function MembersSection() {
                     {m.you ? (
                       <span className="text-muted-foreground">—</span>
                     ) : (
-                      <Button variant="outline" size="sm" className="bg-transparent">
+                      <Button variant="outline" size="sm" className={settingsButtonNeutral}>
                         {m.status === "pending" ? "Reenviar" : "Editar"}
                       </Button>
                     )}
@@ -205,7 +205,7 @@ export function MembersSection() {
                   label={m.statusText}
                 />
                 {!m.you && (
-                  <Button variant="outline" size="sm" className="bg-transparent">
+                  <Button variant="outline" size="sm" className={settingsButtonNeutral}>
                     {m.status === "pending" ? "Reenviar" : "Editar"}
                   </Button>
                 )}
@@ -232,7 +232,9 @@ export function MembersSection() {
               <SelectItem value="socio">Sócio</SelectItem>
             </SelectContent>
           </Select>
-          <Button size="sm">Convidar</Button>
+          <Button size="sm" variant="outline" className={settingsButtonNeutral}>
+            Convidar
+          </Button>
         </div>
       </Section>
 

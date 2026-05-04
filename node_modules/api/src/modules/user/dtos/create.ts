@@ -1,7 +1,14 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { Optional } from '@nestjs/common';
-import { IsEmail, IsString, IsStrongPassword, Validate } from 'class-validator';
+import {
+  IsEmail,
+  IsEnum,
+  IsOptional,
+  IsString,
+  IsStrongPassword,
+  Validate,
+} from 'class-validator';
 import { IsCpfValid } from 'src/utils/validations/cpf';
+import { UserRole } from 'src/utils/enums/user_role.enum';
 
 export class CreateUserDTO {
   @ApiProperty({ example: 'João Silva', description: 'Nome completo' })
@@ -37,6 +44,15 @@ export class CreateUserDTO {
     { message: 'A senha não atende todos requisitos de segurança' },
   )
   password: string;
+
+  @ApiPropertyOptional({
+    enum: UserRole,
+    example: UserRole.ADMIN,
+    description: 'Papel no workspace (default ADMIN)',
+  })
+  @IsOptional()
+  @IsEnum(UserRole)
+  role?: UserRole;
 
   @ApiPropertyOptional({ example: null, nullable: true })
   totp_secret: string | null;

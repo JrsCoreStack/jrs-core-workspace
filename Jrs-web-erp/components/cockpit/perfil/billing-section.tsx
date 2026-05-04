@@ -1,8 +1,9 @@
 "use client"
 
 import { Button } from "@/components/ui/button"
+import { cn } from "@/lib/utils"
 import { Check, CreditCard, FileText } from "lucide-react"
-import { Section, SettingRow, StatusDot } from "./shared"
+import { Section, SettingRow, StatusDot, settingsButtonNeutral } from "./shared"
 
 const payments = [
   { period: "Abr 2026", detail: "Orbit Pro · 10 assentos", value: "R$ 297,00" },
@@ -58,10 +59,10 @@ export function BillingSection() {
 
             <div className="flex shrink-0 flex-col items-start gap-2 sm:items-end">
               <StatusDot tone="ok" label="Ativo" />
-              <Button variant="outline" size="sm" className="bg-transparent">
+              <Button variant="outline" size="sm" className={settingsButtonNeutral}>
                 Alterar plano
               </Button>
-              <Button variant="outline" size="sm" className="bg-transparent">
+              <Button variant="outline" size="sm" className={settingsButtonNeutral}>
                 Cancelar assinatura
               </Button>
             </div>
@@ -79,7 +80,7 @@ export function BillingSection() {
               <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-500 ring-1 ring-emerald-500/20">
                 Padrão
               </span>
-              <Button variant="outline" size="sm" className="bg-transparent">
+              <Button variant="outline" size="sm" className={settingsButtonNeutral}>
                 Trocar
               </Button>
             </div>
@@ -111,7 +112,7 @@ export function BillingSection() {
                   {p.value}
                 </span>
                 <span className="text-[11px] font-bold text-emerald-500">Pago</span>
-                <Button variant="outline" size="sm" className="gap-1.5 bg-transparent">
+                <Button variant="outline" size="sm" className={cn("gap-1.5", settingsButtonNeutral)}>
                   <FileText className="size-3.5" strokeWidth={1.8} />
                   PDF
                 </Button>

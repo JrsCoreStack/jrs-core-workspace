@@ -1,8 +1,6 @@
 "use client"
 
 import { Button } from "@/components/ui/button"
-import { cn } from "@/lib/utils"
-import { COCKPIT_MAIN_CLASS } from "@/lib/cockpit/cockpit-page-shell"
 import {
   isSocioOnlyTab,
   parsePerfilTabParam,
@@ -132,46 +130,35 @@ function PerfilPageInner() {
       : TAB_HEADER[activeTab]
 
   return (
-    <main
-      className={cn(
-        COCKPIT_MAIN_CLASS,
-        "bg-muted/35 dark:bg-background"
-      )}
-    >
-      <div className="mx-auto w-full max-w-4xl px-2 sm:px-0">
-        <section className="min-w-0 rounded-2xl border border-border/70 bg-card px-5 py-6 shadow-sm sm:px-8 sm:py-8 dark:border-border">
-          <div className="mb-6">
-            <h1
-              className="text-[26px] leading-tight font-extrabold tracking-tight text-foreground"
-              style={{
-                fontFamily:
-                  "var(--font-syne,'Plus Jakarta Sans',system-ui,sans-serif)",
-              }}
-            >
-              {headerMeta.title}
-            </h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {headerMeta.description}
-            </p>
-            {activeTab === "workspace" && isSocio && (
-              <span className="mt-3 inline-flex items-center gap-1.5 rounded-full border border-primary/25 bg-primary/10 px-3 py-1 text-[12px] font-semibold text-primary">
-                <svg
-                  width="11"
-                  height="11"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2.8"
-                  aria-hidden
-                >
-                  <polyline points="20 6 9 17 4 12" />
-                </svg>
-                Sócio — acesso total
-              </span>
-            )}
+    <main className="cp-settings-main min-h-0 flex-1">
+      <div className="rf-cockpit-fill">
+        <header className="cp-topbar shrink-0">
+          <div className="cp-topbar-left">
+            <div>
+              <h1 className="cp-page-title">{headerMeta.title}</h1>
+              <p className="cp-page-sub">{headerMeta.description}</p>
+              {activeTab === "workspace" && isSocio && (
+                <span className="cp-topbar-chip">
+                  <svg
+                    width="11"
+                    height="11"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.8"
+                    aria-hidden
+                  >
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                  Sócio — acesso total
+                </span>
+              )}
+            </div>
           </div>
-          <div className="mb-6 h-px bg-border/60" />
+        </header>
 
+        <div className="cp-settings-body">
+          <div className="cp-settings-inner">
           {!isSocio &&
             activeTab !== "seguranca" &&
             activeTab !== "notificacoes" &&
@@ -221,17 +208,18 @@ function PerfilPageInner() {
             />
           )}
 
-          <div className="mt-10 border-t border-border/60 pt-6 md:hidden">
+          <div className="mt-10 border-t border-[color:var(--rf-border-subtle)] pt-6 md:hidden">
             <Button
               variant="outline"
-              className="w-full gap-2 border-destructive/30 bg-transparent text-destructive hover:bg-destructive/10 hover:text-destructive"
+              className="w-full gap-2 border-destructive/30 bg-[var(--rf-bg-surface)] text-destructive hover:bg-destructive/10 hover:text-destructive"
               onClick={() => void handleSignOut()}
               disabled={signingOut}
             >
               {signingOut ? "Saindo…" : "Sair da conta"}
             </Button>
           </div>
-        </section>
+          </div>
+        </div>
       </div>
     </main>
   )
@@ -241,9 +229,14 @@ export default function PerfilPage() {
   return (
     <Suspense
       fallback={
-        <main className={COCKPIT_MAIN_CLASS}>
-          <div className="mx-auto max-w-4xl px-4 py-8 text-sm text-muted-foreground">
-            Carregando configurações…
+        <main className="rf-cockpit-fill cp-settings-main">
+          <div className="cp-topbar shrink-0">
+            <div className="cp-topbar-left">
+              <div>
+                <div className="cp-page-title">Configurações</div>
+                <p className="cp-page-sub">Carregando…</p>
+              </div>
+            </div>
           </div>
         </main>
       }

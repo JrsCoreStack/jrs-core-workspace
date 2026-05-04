@@ -24,7 +24,7 @@ import {
 import { useTheme } from "next-themes"
 import { useState } from "react"
 import { toast } from "sonner"
-import { RoleChip, Section, SettingRow } from "./shared"
+import { RoleChip, Section, SettingRow, settingsButtonNeutral } from "./shared"
 
 type ActivityItem = {
   id: string
@@ -174,13 +174,13 @@ export function ProfileView({
           <Button
             variant="outline"
             size="sm"
-            className="gap-2 bg-transparent"
+            className={cn("gap-2", settingsButtonNeutral)}
             onClick={onEdit}
           >
             <Edit3 className="size-3.5" strokeWidth={2} />
             Editar perfil
           </Button>
-          <Button size="sm" className="gap-2">
+          <Button size="sm" variant="outline" className={cn("gap-2", settingsButtonNeutral)}>
             <Share2 className="size-3.5" strokeWidth={2} />
             Compartilhar
           </Button>
@@ -297,7 +297,7 @@ export function ProfileEdit({
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center gap-3 border-b border-border pb-5">
-        <Button variant="outline" size="sm" className="bg-transparent" onClick={onBack}>
+        <Button variant="outline" size="sm" className={settingsButtonNeutral} onClick={onBack}>
           ← Voltar
         </Button>
         <h2 className="font-display text-xl font-extrabold tracking-tight text-foreground">
@@ -319,7 +319,7 @@ export function ProfileEdit({
               PNG ou JPG · Máx 5MB · Mín 200×200px
             </p>
             <div className="mt-2 flex gap-2">
-              <Button variant="outline" size="sm" className="bg-transparent">
+              <Button variant="outline" size="sm" className={settingsButtonNeutral}>
                 Fazer upload
               </Button>
               <Button
@@ -392,7 +392,7 @@ export function ProfileEdit({
       </Section>
 
       <div className="flex justify-end gap-2 pt-2">
-        <Button variant="outline" className="bg-transparent" onClick={onBack}>
+        <Button variant="outline" className={settingsButtonNeutral} onClick={onBack}>
           Cancelar
         </Button>
         <Button onClick={handleSave} disabled={saving}>

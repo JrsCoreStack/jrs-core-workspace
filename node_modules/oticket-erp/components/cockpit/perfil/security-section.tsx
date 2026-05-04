@@ -3,7 +3,7 @@
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { Monitor, Shield, Smartphone } from "lucide-react"
-import { SettingsCard, SettingsGroupTitle } from "./shared"
+import { SettingsCard, SettingsGroupTitle, settingsButtonNeutral } from "./shared"
 
 type SessionItem = {
   id: string
@@ -35,10 +35,6 @@ const sessions: SessionItem[] = [
   },
 ]
 
-/** Botões secundários estilo Orbit: fundo branco, borda cinza */
-const ghostAction =
-  "h-9 border border-border bg-white px-4 text-[13px] font-semibold text-foreground shadow-none hover:bg-muted/50 dark:border-border dark:bg-card dark:hover:bg-muted/30"
-
 export function SecuritySection() {
   return (
     <div className="space-y-10">
@@ -55,7 +51,7 @@ export function SecuritySection() {
                 Última alteração há 47 dias
               </p>
             </div>
-            <Button variant="outline" size="sm" className={cn("shrink-0", ghostAction)}>
+            <Button variant="outline" size="sm" className={cn("shrink-0", settingsButtonNeutral)}>
               Alterar senha
             </Button>
           </div>
@@ -84,7 +80,7 @@ export function SecuritySection() {
                 </p>
               </div>
             </div>
-            <Button variant="outline" size="sm" className={cn("shrink-0", ghostAction)}>
+            <Button variant="outline" size="sm" className={cn("shrink-0", settingsButtonNeutral)}>
               Desativar
             </Button>
           </div>
@@ -98,7 +94,7 @@ export function SecuritySection() {
                 8 códigos disponíveis — use se perder acesso ao app
               </p>
             </div>
-            <Button variant="outline" size="sm" className={cn("shrink-0", ghostAction)}>
+            <Button variant="outline" size="sm" className={cn("shrink-0", settingsButtonNeutral)}>
               Ver códigos
             </Button>
           </div>
@@ -142,7 +138,7 @@ export function SecuritySection() {
                 </div>
               </div>
               {!s.current && (
-                <Button variant="outline" size="sm" className={cn("shrink-0 sm:self-center", ghostAction)}>
+                <Button variant="outline" size="sm" className={cn("shrink-0 sm:self-center", settingsButtonNeutral)}>
                   Encerrar
                 </Button>
               )}

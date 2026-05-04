@@ -3,14 +3,22 @@
 import { cn } from "@/lib/utils"
 import type { ReactNode } from "react"
 
+/** Botão secundário cinza nas configurações (como Alterar plano / Trocar no Faturamento). */
+export const settingsButtonNeutral = cn(
+  "rounded-xl border-[color:var(--rf-border-default)] bg-[var(--rf-bg-elevated)]",
+  "text-[13px] font-semibold text-[var(--rf-text-secondary)] shadow-none",
+  "hover:bg-[var(--rf-bg-hover)] hover:text-[var(--rf-text-primary)]",
+  "dark:bg-[var(--rf-bg-surface)]"
+)
+
 /* ─────────────── Título de grupo (label + linha) — padrão Orbit / cockpit ─────────────── */
 export function SettingsGroupTitle({ title }: { title: string }) {
   return (
     <div className="flex min-h-5 flex-wrap items-center gap-x-3 gap-y-1">
-      <span className="max-w-[85%] shrink-0 text-[10px] font-bold uppercase leading-snug tracking-[0.14em] text-muted-foreground sm:max-w-none">
+      <span className="max-w-[85%] shrink-0 text-[10px] font-bold uppercase leading-snug tracking-[0.14em] text-[var(--rf-text-muted)] sm:max-w-none">
         {title}
       </span>
-      <div className="h-px min-w-12 flex-1 bg-border" role="presentation" />
+      <div className="h-px min-w-12 flex-1 bg-[var(--rf-border-default)] opacity-70" role="presentation" />
     </div>
   )
 }
@@ -26,7 +34,8 @@ export function SettingsCard({
   return (
     <div
       className={cn(
-        "overflow-hidden rounded-xl border border-border/80 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)]",
+        "overflow-hidden rounded-2xl border bg-[var(--rf-bg-surface)] shadow-[var(--rf-shadow-sm)]",
+        "border-[color:var(--rf-border-default)]",
         className
       )}
     >
@@ -51,16 +60,16 @@ export function Section({
     <div className="space-y-3">
       <div className="flex items-end justify-between gap-4">
         <div className="flex-1 min-w-0">
-          <h3 className="text-[11px] font-bold uppercase tracking-[0.09em] text-muted-foreground">
+          <h3 className="text-[11px] font-bold uppercase tracking-[0.09em] text-[var(--rf-text-muted)]">
             {title}
           </h3>
           {description && (
-            <p className="mt-1 text-[12.5px] text-muted-foreground/80">{description}</p>
+            <p className="mt-1 text-[12.5px] text-[var(--rf-text-secondary)]">{description}</p>
           )}
         </div>
         {action}
       </div>
-      <div className="overflow-hidden rounded-xl border border-border bg-card">
+      <div className="overflow-hidden rounded-2xl border border-[color:var(--rf-border-default)] bg-[var(--rf-bg-surface)] shadow-[var(--rf-shadow-sm)]">
         {children}
       </div>
     </div>
@@ -84,25 +93,27 @@ export function SettingRow({
   return (
     <div
       className={cn(
-        "flex flex-col gap-3 border-b border-border px-5 py-4 last:border-b-0 sm:flex-row sm:items-center sm:justify-between",
+        /* Grid: rótulos à esquerda (flexível), campo sempre 320px e alinhado à direita do card */
+        "grid gap-4 border-b border-[color:var(--rf-border-subtle)] px-5 py-4 last:border-b-0",
+        "sm:grid-cols-[minmax(0,_1fr)_minmax(0,_min(100%,20rem))] sm:items-center sm:gap-x-10",
         danger && "bg-destructive/5",
         className
       )}
     >
-      <div className="min-w-0 flex-1">
+      <div className="min-w-0">
         <p
           className={cn(
             "text-sm font-semibold",
-            danger ? "text-destructive" : "text-card-foreground"
+            danger ? "text-destructive" : "text-[var(--rf-text-primary)]"
           )}
         >
           {label}
         </p>
         {description && (
-          <p className="mt-0.5 text-[12px] text-muted-foreground">{description}</p>
+          <p className="mt-0.5 text-[12px] text-[var(--rf-text-secondary)]">{description}</p>
         )}
       </div>
-      <div className="flex shrink-0 items-center gap-2 sm:justify-end">{control}</div>
+      <div className="flex w-full min-w-0 justify-end">{control}</div>
     </div>
   )
 }

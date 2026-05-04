@@ -220,6 +220,97 @@
   min-height: 0;
 }
 
+/* Cockpit — topbar de página (mesmo markup/CSS do dashboard Cockpit Estratégico) */
+.cp-topbar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 18px 20px 14px;
+  background: var(--rf-bg-surface);
+  border-bottom: 1px solid var(--rf-border-subtle);
+}
+
+.cp-topbar-left {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-width: 0;
+}
+
+.cp-page-title {
+  margin: 0;
+  font-family: var(--rf-font-display, "Plus Jakarta Sans", system-ui, sans-serif);
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--rf-text-primary);
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+
+.cp-page-sub {
+  margin: 3px 0 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--rf-text-secondary);
+}
+
+.cp-topbar-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.cp-topbar-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  font-size: 11px;
+  font-weight: 700;
+  border: 1px solid var(--rf-accent-border);
+  background: var(--rf-accent-soft);
+  color: var(--rf-accent);
+}
+
+/* Cockpit — configurações (perfil, workspace): mesmo padrão de Rituais (corpo rolável) */
+.cp-settings-main {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow-x: hidden;
+  background: var(--rf-bg-base);
+  font-family: var(--rf-font-body);
+}
+
+.cp-settings-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.cp-settings-inner {
+  width: 100%;
+  max-width: 880px;
+  margin-left: auto;
+  margin-right: auto;
+  padding: 24px 20px 48px;
+  box-sizing: border-box;
+}
+
+@media (min-width: 640px) {
+  .cp-settings-inner {
+    padding-left: 24px;
+    padding-right: 24px;
+  }
+}
+
 .rf-empty-viewport {
   flex: 1;
   display: flex;

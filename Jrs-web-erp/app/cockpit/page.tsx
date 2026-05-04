@@ -413,24 +413,7 @@ export default function CockpitPage() {
           color: var(--rf-text-primary);
         }
 
-        /* ── Topbar ── */
-        .cp-topbar {
-          display: flex; align-items: flex-start;
-          justify-content: space-between; gap: 16px;
-          padding: 18px 20px 14px;
-          background: var(--rf-bg-surface);
-          border-bottom: 1px solid var(--rf-border-subtle);
-          flex-wrap: wrap;
-        }
-        .cp-topbar-left  { display: flex; align-items: flex-start; gap: 10px; min-width: 0; }
-        .cp-page-title   {
-          font-family: var(--rf-font-display, "Plus Jakarta Sans", system-ui, sans-serif);
-          font-size: 18px; font-weight: 600;
-          color: var(--rf-text-primary); letter-spacing: -0.2px;
-          line-height: 1.2;
-        }
-        .cp-page-sub     { font-size: 12px; color: var(--rf-text-secondary); margin-top: 3px; }
-        .cp-topbar-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; flex-shrink: 0; }
+        /* Topbar: .cp-topbar · .cp-page-title · globals.css */
 
         /* Buttons */
         .cp-btn { padding: 7px 14px; border-radius: 12px; font-family: var(--rf-font-body, sans-serif); font-size: 12px; font-weight: 600; cursor: pointer; transition: all var(--rf-transition); border: none; white-space: nowrap; display: inline-flex; align-items: center; gap: 6px; }
