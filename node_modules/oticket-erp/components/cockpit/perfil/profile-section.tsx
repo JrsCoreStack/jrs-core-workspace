@@ -316,9 +316,9 @@ export function ProfileEdit({
         </h2>
       </div>
 
-      {/* Foto — hover no avatar ou no nome mostra câmera por cima da logo */}
+      {/* Foto — hover só mostra câmera no avatar; botões alinhados à direita */}
       <Section title="Foto de perfil">
-        <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:gap-6">
+        <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
           <input
             ref={avatarInputRef}
             id="profile-avatar-upload"
@@ -330,9 +330,10 @@ export function ProfileEdit({
           <label
             htmlFor="profile-avatar-upload"
             className={cn(
-              "group/av flex cursor-pointer gap-4 rounded-xl border border-transparent p-1 -m-1 transition-colors outline-none",
-              "hover:border-[color:var(--rf-accent-border)] hover:bg-muted/30",
-              "focus-within:border-[color:var(--rf-accent-border)] focus-within:ring-2 focus-within:ring-[var(--rf-accent-soft)] focus-within:ring-offset-2 focus-within:ring-offset-[var(--rf-bg-surface)] dark:focus-within:ring-offset-background"
+              "group/av flex min-w-0 flex-1 cursor-pointer gap-4 rounded-xl p-0",
+              "border-0 shadow-none ring-0 outline-none",
+              "hover:border-0 hover:bg-transparent hover:ring-0",
+              "focus-visible:border-0 focus-visible:outline-none focus-visible:ring-0"
             )}
           >
             <span className="relative flex size-16 shrink-0 overflow-hidden rounded-full bg-linear-to-br from-primary to-chart-2 shadow-inner ring-2 ring-background">
@@ -350,35 +351,35 @@ export function ProfileEdit({
               </span>
             </span>
             <span className="flex min-w-0 flex-col items-start pt-0.5">
-              <span className="text-sm font-semibold text-card-foreground transition-colors group-hover/av:text-[var(--rf-accent)]">
-                {displayName}
-              </span>
+              <span className="text-sm font-semibold text-[var(--rf-accent)]">{displayName}</span>
               <span className="mt-0.5 text-left text-[11.5px] text-muted-foreground">
                 PNG ou JPG · Máx 5MB · Mín 200×200px
               </span>
             </span>
           </label>
-          <div className="flex w-full shrink-0 flex-wrap gap-2 sm:w-auto sm:flex-col sm:items-stretch">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className={settingsButtonNeutral}
-                onClick={() => avatarInputRef.current?.click()}
-              >
-                Fazer upload
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="rounded-lg border-destructive/30 bg-transparent text-destructive hover:bg-destructive/10 hover:text-destructive"
-                onClick={() => toast.message("Demonstração — foto não removida.")}
-              >
-                Remover
-              </Button>
-            </div>
+          <div className="flex w-full shrink-0 flex-col items-end gap-2 sm:w-auto sm:items-end">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className={cn(settingsButtonNeutral, "min-w-[8.75rem]")}
+              onClick={() => avatarInputRef.current?.click()}
+            >
+              Fazer upload
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className={cn(
+                "min-w-[8.75rem] rounded-lg border-destructive/30 bg-transparent text-destructive hover:bg-destructive/10 hover:text-destructive"
+              )}
+              onClick={() => toast.message("Demonstração — foto não removida.")}
+            >
+              Remover
+            </Button>
           </div>
+        </div>
       </Section>
 
       {/* Pessoais */}
