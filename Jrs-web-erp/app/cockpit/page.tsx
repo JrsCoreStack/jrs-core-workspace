@@ -5,20 +5,15 @@ import { useEffect, useMemo, useState } from "react"
 import api from "@/utils/api"
 import { COCKPIT_AREAS, areaColor, areaLabel, ACTION_PLAN_STATUS_LABELS } from "@/lib/cockpit/constants"
 import { SidebarTrigger } from "@/components/ui/sidebar"
+import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
-/* ──────────────────────────────────────────────────────────────────────────
-   TYPES
-────────────────────────────────────────────────────────────────────────── */
 type KpiData      = Record<string, unknown>
 type PlanData     = Record<string, unknown>
 type RitualData   = Record<string, unknown>
 type MeetingData  = Record<string, unknown>
 type PeriodKey    = "week" | "month" | "year"
 
-/* ──────────────────────────────────────────────────────────────────────────
-   HELPERS
-────────────────────────────────────────────────────────────────────────── */
 function fmtVal(v: number, unit: string): string {
   if (unit === "R$" || unit === "BRL") {
     if (Math.abs(v) >= 1_000_000) return `R$ ${(v / 1_000_000).toFixed(1).replace(".", ",")}M`
@@ -32,29 +27,24 @@ function fmtVal(v: number, unit: string): string {
 function kpiShowsInCockpit(k: KpiData): boolean {
   return k.show_in_cockpit === true || k.is_cockpit === true
 }
-
 function kpiCurrent(k: KpiData): number {
   const v = k.current_value ?? k.current
   const n = typeof v === "number" ? v : Number(v)
   return Number.isFinite(n) ? n : 0
 }
-
 function kpiGoal(k: KpiData): number {
   const g = k.goal ?? k.month_goal
   const n = typeof g === "number" ? g : Number(g)
   return Number.isFinite(n) ? n : 0
 }
-
 function devPct(current: number, goal: number): number {
   if (!goal) return 0
   return ((current - goal) / Math.abs(goal)) * 100
 }
-
 function progressPct(current: number, goal: number): number {
   if (!goal) return 0
   return Math.min(100, Math.max(0, (current / goal) * 100))
 }
-
 function calendarPeriodDates(periodKey: PeriodKey, ref: Date): { from: string; to: string } {
   if (periodKey === "week") {
     const start = new Date(ref); start.setDate(start.getDate() - 6)
@@ -67,7 +57,6 @@ function calendarPeriodDates(periodKey: PeriodKey, ref: Date): { from: string; t
   const y = ref.getFullYear()
   return { from: `${y}-01-01`, to: `${y}-12-31` }
 }
-
 function nextCalendarPeriodDates(periodKey: PeriodKey, ref: Date): { from: string; to: string } {
   if (periodKey === "week") {
     const start = new Date(ref); start.setDate(start.getDate() + 1)
@@ -82,9 +71,6 @@ function nextCalendarPeriodDates(periodKey: PeriodKey, ref: Date): { from: strin
   return { from: `${y}-01-01`, to: `${y}-12-31` }
 }
 
-/* ──────────────────────────────────────────────────────────────────────────
-   SVG ICONS
-────────────────────────────────────────────────────────────────────────── */
 function IcDownload() {
   return (
     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -130,9 +116,6 @@ function IcCheck2() {
   )
 }
 
-/* ──────────────────────────────────────────────────────────────────────────
-   KPI CARD
-────────────────────────────────────────────────────────────────────────── */
 function KpiCard({ kpi, highlight }: { kpi: KpiData; highlight?: boolean }) {
   const current  = kpiCurrent(kpi)
   const goal     = kpiGoal(kpi)
@@ -164,9 +147,6 @@ function KpiCard({ kpi, highlight }: { kpi: KpiData; highlight?: boolean }) {
   )
 }
 
-/* ──────────────────────────────────────────────────────────────────────────
-   KANBAN
-────────────────────────────────────────────────────────────────────────── */
 function taskAreaBadgeClass(area: string): string {
   const color = areaColor(area)
   const map: Record<string, string> = {
@@ -238,15 +218,9 @@ function PlanCard({ plan }: { plan: PlanData }) {
 }
 
 function KanbanCol({
-  title,
-  count,
-  countClass,
-  plans,
+  title, count, countClass, plans,
 }: {
-  title: string
-  count: number
-  countClass: string
-  plans: PlanData[]
+  title: string; count: number; countClass: string; plans: PlanData[]
 }) {
   return (
     <div className="cp-kanban-col">
@@ -264,16 +238,7 @@ function KanbanCol({
   )
 }
 
-/* ──────────────────────────────────────────────────────────────────────────
-   RITUAL ITEM
-────────────────────────────────────────────────────────────────────────── */
-function RitualItem({
-  meeting,
-  ritual,
-}: {
-  meeting: MeetingData
-  ritual?: RitualData
-}) {
+function RitualItem({ meeting, ritual }: { meeting: MeetingData; ritual?: RitualData }) {
   const state    = String(meeting.state ?? "")
   const raw      = String(meeting.occurred_at ?? "")
   const t        = raw ? new Date(raw) : null
@@ -308,7 +273,7 @@ function RitualItem({
             </span>
           )}
           {isActive && (
-            <button className="cp-btn-enter">Entrar na Sala →</button>
+            <Button size="xs">Entrar na Sala →</Button>
           )}
           {!isDone && !isActive && (
             <span style={{ fontSize: 11, color: "var(--rf-text-muted)" }}>
@@ -321,9 +286,6 @@ function RitualItem({
   )
 }
 
-/* ──────────────────────────────────────────────────────────────────────────
-   PAGE
-────────────────────────────────────────────────────────────────────────── */
 const PERIODS: { key: PeriodKey; label: string }[] = [
   { key: "week",  label: "Esta semana" },
   { key: "month", label: "Este mês" },
@@ -336,15 +298,15 @@ const AREAS = [
 ]
 
 export default function CockpitPage() {
-  const [loading,     setLoading]   = useState(true)
-  const [kpis,        setKpis]      = useState<KpiData[]>([])
-  const [plans,       setPlans]     = useState<PlanData[]>([])
-  const [rituals,     setRituals]   = useState<RitualData[]>([])
-  const [meetings,    setMeetings]  = useState<MeetingData[]>([])
-  const [activeArea,  setActiveArea] = useState("all")
+  const [loading,      setLoading]    = useState(true)
+  const [kpis,         setKpis]       = useState<KpiData[]>([])
+  const [plans,        setPlans]      = useState<PlanData[]>([])
+  const [rituals,      setRituals]    = useState<RitualData[]>([])
+  const [meetings,     setMeetings]   = useState<MeetingData[]>([])
+  const [activeArea,   setActiveArea]  = useState("all")
   const [activePeriod, setActivePeriod] = useState<PeriodKey>("month")
 
-  const todayIso = new Date().toISOString().slice(0, 10)
+  const todayIso   = new Date().toISOString().slice(0, 10)
   const todayLabel = new Date(`${todayIso}T12:00:00`).toLocaleDateString("pt-BR", {
     weekday: "long", day: "2-digit", month: "short",
   })
@@ -353,7 +315,7 @@ export default function CockpitPage() {
     setLoading(true)
     try {
       const areaParams = activeArea !== "all" ? { area: activeArea } : {}
-      const ref = new Date()
+      const ref  = new Date()
       const cur  = calendarPeriodDates(activePeriod, ref)
       const next = nextCalendarPeriodDates(activePeriod, ref)
       const meetingParams = {
@@ -377,15 +339,11 @@ export default function CockpitPage() {
 
   useEffect(() => { void refreshAll() }, [activeArea, activePeriod]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  /* ── derived ── */
   const cockpitKpis = useMemo(() => kpis.filter(kpiShowsInCockpit), [kpis])
-
-  const todoPlans  = useMemo(() => plans.filter((p) => ["planned", "todo"].includes(String(p.status ?? ""))), [plans])
-  const doingPlans = useMemo(() => plans.filter((p) => ["in_progress", "blocked"].includes(String(p.status ?? ""))), [plans])
-  const donePlans  = useMemo(() => plans.filter((p) => ["delivered", "done"].includes(String(p.status ?? ""))), [plans])
-
-  const ritualById = useMemo(() => new Map(rituals.map((r) => [String(r.id ?? ""), r])), [rituals])
-
+  const todoPlans   = useMemo(() => plans.filter((p) => ["planned", "todo"].includes(String(p.status ?? ""))), [plans])
+  const doingPlans  = useMemo(() => plans.filter((p) => ["in_progress", "blocked"].includes(String(p.status ?? ""))), [plans])
+  const donePlans   = useMemo(() => plans.filter((p) => ["delivered", "done"].includes(String(p.status ?? ""))), [plans])
+  const ritualById  = useMemo(() => new Map(rituals.map((r) => [String(r.id ?? ""), r])), [rituals])
   const todayMeetings = useMemo(
     () => meetings
       .filter((m) => String(m.occurred_at ?? "").startsWith(todayIso))
@@ -393,16 +351,11 @@ export default function CockpitPage() {
     [meetings, todayIso],
   )
 
-  /* ──────────────────────────────────────────────────────────────────────
-     RENDER
-  ────────────────────────────────────────────────────────────────────── */
   return (
     <>
-      {/* ── Inline styles ────────────────────────────────────────────────── */}
       <style>{`
         @keyframes cp-spin { to { transform: rotate(360deg); } }
 
-        /* ── Page shell ── */
         .cp-page {
           display: flex; flex-direction: column;
           height: 100%; overflow-y: auto; overflow-x: hidden;
@@ -411,7 +364,6 @@ export default function CockpitPage() {
           color: var(--rf-text-primary);
         }
 
-        /* ── Topbar ── */
         .cp-topbar {
           display: flex; align-items: flex-start;
           justify-content: space-between; gap: 16px;
@@ -424,26 +376,15 @@ export default function CockpitPage() {
         .cp-page-title   {
           font-family: var(--rf-font-display, 'Syne', sans-serif);
           font-size: 20px; font-weight: 800;
-          color: var(--rf-text-primary); letter-spacing: -0.3px;
-          line-height: 1.2;
+          color: var(--rf-text-primary); letter-spacing: -0.3px; line-height: 1.2;
         }
         .cp-page-sub     { font-size: 12px; color: var(--rf-text-secondary); margin-top: 3px; }
         .cp-topbar-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; flex-shrink: 0; }
 
-        /* Buttons */
-        .cp-btn { padding: 7px 14px; border-radius: 12px; font-family: var(--rf-font-body, sans-serif); font-size: 12px; font-weight: 600; cursor: pointer; transition: all var(--rf-transition); border: none; white-space: nowrap; display: inline-flex; align-items: center; gap: 6px; }
-        .cp-btn-ghost { background: var(--rf-bg-elevated); color: var(--rf-text-secondary); border: 1px solid var(--rf-border-default); }
-        .cp-btn-ghost:hover { border-color: var(--rf-border-strong); color: var(--rf-text-primary); }
-        .cp-btn-accent { background: var(--rf-accent); color: #fff; box-shadow: 0 2px 8px rgba(123,97,255,0.35); }
-        .cp-btn-accent:hover { background: var(--rf-accent-hover); box-shadow: 0 4px 14px rgba(123,97,255,0.45); }
-        .cp-btn-accent:disabled { opacity: 0.6; cursor: not-allowed; }
-
-        /* ── Filter row ── */
         .cp-filter-row {
           display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none;
           padding: 12px 20px; background: var(--rf-bg-surface);
-          border-bottom: 1px solid var(--rf-border-subtle);
-          flex-wrap: wrap;
+          border-bottom: 1px solid var(--rf-border-subtle); flex-wrap: wrap;
         }
         .cp-filter-row::-webkit-scrollbar { display: none; }
         .cp-chip {
@@ -457,25 +398,19 @@ export default function CockpitPage() {
         .cp-chip:hover { border-color: var(--rf-border-strong); color: var(--rf-text-primary); }
         .cp-chip-active { background: var(--rf-accent-soft); color: var(--rf-accent); border-color: var(--rf-accent-border); }
 
-        /* ── Content ── */
         .cp-content { padding: 20px; display: flex; flex-direction: column; gap: 24px; flex: 1; }
 
-        /* ── Section header ── */
         .cp-sec-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
         .cp-sec-title { font-family: var(--rf-font-display, 'Syne', sans-serif); font-size: 14px; font-weight: 700; color: var(--rf-text-primary); }
-        .cp-sec-link { font-size: 12px; color: var(--rf-accent); font-weight: 600; cursor: pointer; text-decoration: none; }
-        .cp-sec-meta { font-size: 11px; color: var(--rf-text-muted); font-family: monospace; }
+        .cp-sec-link  { font-size: 12px; color: var(--rf-accent); font-weight: 600; cursor: pointer; text-decoration: none; }
+        .cp-sec-meta  { font-size: 11px; color: var(--rf-text-muted); font-family: monospace; }
 
-        /* ── Divider ── */
         .cp-divider { height: 1px; background: var(--rf-border-subtle); }
 
-        /* ── KPI Cards ── */
         .cp-kpi-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
         @media (max-width: 480px) { .cp-kpi-grid { grid-template-columns: 1fr; } }
-
         .cp-kpi-card {
-          background: var(--rf-bg-surface);
-          border: 1px solid var(--rf-border-default);
+          background: var(--rf-bg-surface); border: 1px solid var(--rf-border-default);
           border-radius: 16px; padding: 16px;
           transition: all var(--rf-transition); cursor: pointer;
           display: block; text-decoration: none; color: inherit;
@@ -493,20 +428,16 @@ export default function CockpitPage() {
         }
         .cp-kpi-highlight .cp-kpi-value { color: var(--rf-accent); }
         .cp-kpi-delta { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 9999px; }
-        .cp-delta-up   { background: rgba(34,197,94,0.10); color: #22c55e; }
+        .cp-delta-up   { background: rgba(34,197,94,0.10);  color: #22c55e; }
         .cp-delta-down { background: rgba(239,68,68,0.10); color: #ef4444; }
         .cp-kpi-sub { font-size: 11px; color: var(--rf-text-muted); margin-top: 6px; }
-
-        .cp-progress-bar { height: 3px; border-radius: 9999px; background: var(--rf-border-subtle); overflow: hidden; margin-top: 10px; }
+        .cp-progress-bar  { height: 3px; border-radius: 9999px; background: var(--rf-border-subtle); overflow: hidden; margin-top: 10px; }
         .cp-progress-fill { height: 100%; border-radius: 9999px; background: linear-gradient(90deg, var(--rf-accent), #00d4ff); transition: width 0.6s ease; }
         .cp-kpi-highlight .cp-progress-fill { background: var(--rf-accent); }
-
-        /* Skeleton */
         .cp-kpi-skeleton { background: var(--rf-bg-surface); border: 1px solid var(--rf-border-subtle); border-radius: 16px; padding: 16px; }
         .cp-skeleton-bar { border-radius: 4px; background: var(--rf-border-subtle); animation: cp-shimmer 1.4s ease-in-out infinite; }
         @keyframes cp-shimmer { 0%,100%{opacity:1}50%{opacity:0.5} }
 
-        /* ── Kanban ── */
         .cp-kanban-wrap { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none; }
         .cp-kanban-wrap::-webkit-scrollbar { display: none; }
         .cp-kanban-col {
@@ -517,10 +448,9 @@ export default function CockpitPage() {
         .cp-kanban-col-hd { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
         .cp-kanban-col-title { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--rf-text-muted); }
         .cp-kanban-count { font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 9999px; }
-        .cp-cnt-todo   { background: var(--rf-bg-overlay); color: var(--rf-text-secondary); }
-        .cp-cnt-doing  { background: rgba(245,158,11,0.10); color: #f59e0b; }
-        .cp-cnt-done   { background: rgba(34,197,94,0.10); color: #22c55e; }
-
+        .cp-cnt-todo  { background: var(--rf-bg-overlay);           color: var(--rf-text-secondary); }
+        .cp-cnt-doing { background: rgba(245,158,11,0.10); color: #f59e0b; }
+        .cp-cnt-done  { background: rgba(34,197,94,0.10);  color: #22c55e; }
         .cp-task-card {
           background: var(--rf-bg-elevated); border: 1px solid var(--rf-border-subtle);
           border-radius: 12px; padding: 12px; margin-bottom: 8px;
@@ -530,7 +460,7 @@ export default function CockpitPage() {
         .cp-task-card:last-child { margin-bottom: 0; }
         .cp-task-badge { display: inline-flex; align-items: center; font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 9999px; margin-bottom: 6px; }
         .cp-tb-accent  { background: var(--rf-accent-soft); color: var(--rf-accent); }
-        .cp-tb-cyan    { background: rgba(0,212,255,0.10); color: #00d4ff; }
+        .cp-tb-cyan    { background: rgba(0,212,255,0.10);  color: #00d4ff; }
         .cp-tb-warning { background: rgba(245,158,11,0.10); color: #f59e0b; }
         .cp-task-title { font-size: 12px; font-weight: 500; color: var(--rf-text-primary); line-height: 1.4; margin-bottom: 8px; }
         .cp-done-title { text-decoration: line-through; color: var(--rf-text-muted); }
@@ -543,12 +473,11 @@ export default function CockpitPage() {
           font-size: 7px; font-weight: 700; color: #fff;
           font-family: var(--rf-font-display, 'Syne', sans-serif);
         }
-        .cp-task-progress { margin-top: 8px; }
+        .cp-task-progress       { margin-top: 8px; }
         .cp-task-progress-label { font-size: 10px; color: var(--rf-text-muted); margin-bottom: 4px; }
-        .cp-task-progress-bar { height: 2px; border-radius: 9999px; background: var(--rf-border-subtle); overflow: hidden; }
-        .cp-task-progress-fill { height: 100%; border-radius: 9999px; }
+        .cp-task-progress-bar   { height: 2px; border-radius: 9999px; background: var(--rf-border-subtle); overflow: hidden; }
+        .cp-task-progress-fill  { height: 100%; border-radius: 9999px; }
 
-        /* ── Rituais ── */
         .cp-ritual-list { display: flex; flex-direction: column; gap: 10px; }
         .cp-ritual-item {
           background: var(--rf-bg-surface); border: 1px solid var(--rf-border-subtle);
@@ -558,17 +487,17 @@ export default function CockpitPage() {
         }
         .cp-ritual-active { border-color: var(--rf-accent-border); background: var(--rf-accent-soft); }
         .cp-ritual-time { text-align: right; flex-shrink: 0; min-width: 46px; }
-        .cp-rt-time { font-family: monospace; font-size: 13px; font-weight: 500; color: var(--rf-text-primary); }
+        .cp-rt-time   { font-family: monospace; font-size: 13px; font-weight: 500; color: var(--rf-text-primary); }
         .cp-rt-active { color: var(--rf-accent); }
-        .cp-rt-dur { font-size: 10px; color: var(--rf-text-muted); margin-top: 2px; }
-        .cp-ritual-bar { width: 2px; border-radius: 2px; align-self: stretch; flex-shrink: 0; }
-        .cp-rb-done   { background: #22c55e; }
-        .cp-rb-active { background: var(--rf-accent); }
-        .cp-rb-next   { background: var(--rf-border-strong); }
+        .cp-rt-dur    { font-size: 10px; color: var(--rf-text-muted); margin-top: 2px; }
+        .cp-ritual-bar  { width: 2px; border-radius: 2px; align-self: stretch; flex-shrink: 0; }
+        .cp-rb-done     { background: #22c55e; }
+        .cp-rb-active   { background: var(--rf-accent); }
+        .cp-rb-next     { background: var(--rf-border-strong); }
         .cp-ritual-body { flex: 1; min-width: 0; }
         .cp-ritual-name { font-size: 13px; font-weight: 600; color: var(--rf-text-primary); margin-bottom: 3px; }
         .cp-ritual-desc { font-size: 11.5px; color: var(--rf-text-secondary); margin-bottom: 8px; }
-        .cp-ritual-footer { display: flex; align-items: center; justify-content: space-between; }
+        .cp-ritual-footer  { display: flex; align-items: center; justify-content: space-between; }
         .cp-ritual-avatars { display: flex; }
         .cp-r-avatar {
           width: 20px; height: 20px; border-radius: 50%;
@@ -580,13 +509,9 @@ export default function CockpitPage() {
         }
         .cp-badge-status { display: inline-flex; align-items: center; gap: 4px; font-size: 10px; font-weight: 600; padding: 3px 8px; border-radius: 9999px; }
         .cp-bs-done { background: rgba(34,197,94,0.10); color: #22c55e; }
-        .cp-btn-enter { padding: 5px 12px; background: var(--rf-accent); color: #fff; border: none; border-radius: 10px; font-family: var(--rf-font-body, sans-serif); font-size: 11px; font-weight: 600; cursor: pointer; transition: all var(--rf-transition); }
-        .cp-btn-enter:hover { background: var(--rf-accent-hover); }
 
-        /* ── Empty state ── */
         .cp-empty {
-          background: var(--rf-bg-surface);
-          border: 1px dashed var(--rf-border-strong);
+          background: var(--rf-bg-surface); border: 1px dashed var(--rf-border-strong);
           border-radius: 16px; padding: 48px 28px; text-align: center;
         }
         .cp-empty-icon {
@@ -597,16 +522,7 @@ export default function CockpitPage() {
         }
         .cp-empty-title { font-family: var(--rf-font-display, 'Syne', sans-serif); font-size: 15px; font-weight: 700; color: var(--rf-text-primary); margin-bottom: 6px; }
         .cp-empty-desc  { font-size: 13px; color: var(--rf-text-secondary); line-height: 1.5; margin-bottom: 22px; }
-        .cp-empty-btn {
-          padding: 10px 24px; background: var(--rf-accent); color: #fff;
-          border: none; border-radius: 10px;
-          font-family: var(--rf-font-body, sans-serif); font-size: 13px; font-weight: 600;
-          cursor: pointer; transition: all var(--rf-transition);
-          box-shadow: 0 2px 10px rgba(123,97,255,0.35);
-        }
-        .cp-empty-btn:hover { background: var(--rf-accent-hover); box-shadow: 0 4px 16px rgba(123,97,255,0.45); transform: translateY(-1px); }
 
-        /* ── KPI ghost (empty data) ── */
         .cp-kpi-ghost { opacity: 0.45; cursor: default; pointer-events: none; }
         .cp-kpi-ghost .cp-kpi-value { color: var(--rf-text-muted); font-size: 20px; }
         .cp-kpi-ghost-wide { grid-column: 1 / -1; }
@@ -614,7 +530,7 @@ export default function CockpitPage() {
 
       <div className="cp-page">
 
-        {/* ── Topbar ─────────────────────────────────────────────────────── */}
+        {/* Topbar */}
         <div className="cp-topbar">
           <div className="cp-topbar-left">
             <SidebarTrigger style={{ marginTop: 2 }} />
@@ -624,8 +540,9 @@ export default function CockpitPage() {
             </div>
           </div>
           <div className="cp-topbar-actions">
-            <button
-              className="cp-btn cp-btn-ghost"
+            <Button
+              variant="outline"
+              size="sm"
               disabled={loading}
               onClick={() => {
                 const params = new URLSearchParams({ period: activePeriod })
@@ -634,14 +551,14 @@ export default function CockpitPage() {
               }}
             >
               <IcDownload /> PDF
-            </button>
-            <button className="cp-btn cp-btn-accent" disabled={loading} onClick={() => void refreshAll()}>
+            </Button>
+            <Button size="sm" disabled={loading} onClick={() => void refreshAll()}>
               <IcRefresh spin={loading} /> Atualizar
-            </button>
+            </Button>
           </div>
         </div>
 
-        {/* ── Filters ─────────────────────────────────────────────────────── */}
+        {/* Filters */}
         <div className="cp-filter-row">
           {AREAS.map((a) => (
             <button
@@ -664,51 +581,42 @@ export default function CockpitPage() {
           ))}
         </div>
 
-        {/* ── Content ─────────────────────────────────────────────────────── */}
+        {/* Content */}
         <div className="cp-content">
 
-          {/* ── KPI Indicadores ── */}
+          {/* KPIs */}
           <section>
             <div className="cp-sec-header">
               <span className="cp-sec-title">Indicadores</span>
               <Link href="/cockpit/kpis" className="cp-sec-link">Ver todos →</Link>
             </div>
-
             {loading && cockpitKpis.length === 0 ? (
-              /* Carregando — skeletons */
               <div className="cp-kpi-grid">
                 {[0, 1, 2, 3].map((i) => (
                   <div key={i} className="cp-kpi-skeleton">
                     <div className="cp-skeleton-bar" style={{ height: 10, width: "60%", marginBottom: 12 }} />
                     <div className="cp-skeleton-bar" style={{ height: 28, width: "45%", marginBottom: 10 }} />
-                    <div className="cp-skeleton-bar" style={{ height: 8, width: "30%", marginBottom: 12 }} />
-                    <div className="cp-skeleton-bar" style={{ height: 3, width: "100%" }} />
+                    <div className="cp-skeleton-bar" style={{ height: 8,  width: "30%", marginBottom: 12 }} />
+                    <div className="cp-skeleton-bar" style={{ height: 3,  width: "100%" }} />
                   </div>
                 ))}
               </div>
             ) : cockpitKpis.length === 0 ? (
-              /* Sem dados — cards fantasmas */
               <div className="cp-kpi-grid">
                 {[
                   { label: "Receita Recorrente" },
                   { label: "Churn Rate" },
                   { label: "Planos Concluídos", wide: true },
                 ].map((ghost, i) => (
-                  <div
-                    key={i}
-                    className={cn("cp-kpi-card cp-kpi-ghost", ghost.wide && "cp-kpi-ghost-wide")}
-                  >
+                  <div key={i} className={cn("cp-kpi-card cp-kpi-ghost", ghost.wide && "cp-kpi-ghost-wide")}>
                     <div className="cp-kpi-label">{ghost.label}</div>
                     <div className="cp-kpi-value">—</div>
                     <div className="cp-kpi-sub">Nenhum dado</div>
-                    <div className="cp-progress-bar">
-                      <div className="cp-progress-fill" style={{ width: "0%" }} />
-                    </div>
+                    <div className="cp-progress-bar"><div className="cp-progress-fill" style={{ width: "0%" }} /></div>
                   </div>
                 ))}
               </div>
             ) : (
-              /* Com dados */
               <div className="cp-kpi-grid">
                 {cockpitKpis.slice(0, 4).map((k, i) => (
                   <KpiCard key={String(k.id ?? i)} kpi={k} highlight={i === cockpitKpis.length - 1 && i > 0} />
@@ -719,67 +627,54 @@ export default function CockpitPage() {
 
           <div className="cp-divider" />
 
-          {/* ── Planos de Ação (kanban) ── */}
+          {/* Planos de Ação */}
           <section>
             <div className="cp-sec-header">
               <span className="cp-sec-title">Planos de Ação</span>
               <Link href="/cockpit/planos-de-acao" className="cp-sec-link">Ver todos →</Link>
             </div>
-
             {plans.length === 0 && !loading ? (
               <div className="cp-empty">
                 <div className="cp-empty-icon">
                   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                    <path d="M9 11l3 3L22 4"/>
-                    <path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/>
+                    <path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/>
                   </svg>
                 </div>
                 <div className="cp-empty-title">Nenhum plano criado ainda</div>
                 <div className="cp-empty-desc">Crie seu primeiro plano de ação para começar a acompanhar a execução tática da sua equipe.</div>
-                <Link href="/cockpit/planos-de-acao">
-                  <button className="cp-empty-btn">+ Criar primeiro plano</button>
-                </Link>
+                <Button asChild>
+                  <Link href="/cockpit/planos-de-acao">+ Criar primeiro plano</Link>
+                </Button>
               </div>
             ) : (
               <div className="cp-kanban-wrap">
-                <KanbanCol
-                  title="A Fazer" countClass="cp-cnt-todo"
-                  count={todoPlans.length} plans={todoPlans.slice(0, 5)}
-                />
-                <KanbanCol
-                  title="Em Andamento" countClass="cp-cnt-doing"
-                  count={doingPlans.length} plans={doingPlans.slice(0, 5)}
-                />
-                <KanbanCol
-                  title="Concluído" countClass="cp-cnt-done"
-                  count={donePlans.length} plans={donePlans.slice(0, 5)}
-                />
+                <KanbanCol title="A Fazer"       countClass="cp-cnt-todo"  count={todoPlans.length}  plans={todoPlans.slice(0, 5)} />
+                <KanbanCol title="Em Andamento"  countClass="cp-cnt-doing" count={doingPlans.length} plans={doingPlans.slice(0, 5)} />
+                <KanbanCol title="Concluído"     countClass="cp-cnt-done"  count={donePlans.length}  plans={donePlans.slice(0, 5)} />
               </div>
             )}
           </section>
 
           <div className="cp-divider" />
 
-          {/* ── Rituais do Dia ── */}
+          {/* Rituais do Dia */}
           <section>
             <div className="cp-sec-header">
               <span className="cp-sec-title">Rituais do Dia</span>
               <span className="cp-sec-meta">{todayLabel}</span>
             </div>
-
             {todayMeetings.length === 0 && !loading ? (
               <div className="cp-empty">
                 <div className="cp-empty-icon">
                   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                    <circle cx="12" cy="8" r="4"/>
-                    <path d="M6 20v-2a6 6 0 0112 0v2"/>
+                    <circle cx="12" cy="8" r="4"/><path d="M6 20v-2a6 6 0 0112 0v2"/>
                   </svg>
                 </div>
                 <div className="cp-empty-title">Nenhum ritual agendado</div>
                 <div className="cp-empty-desc">Configure os rituais da sua equipe para sincronizar alinhamentos, revisões e tomadas de decisão.</div>
-                <Link href="/cockpit/rituais">
-                  <button className="cp-empty-btn">+ Configurar rituais</button>
-                </Link>
+                <Button asChild>
+                  <Link href="/cockpit/rituais">+ Configurar rituais</Link>
+                </Button>
               </div>
             ) : (
               <div className="cp-ritual-list">
